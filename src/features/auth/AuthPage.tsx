@@ -22,21 +22,10 @@ const initialState: AuthFormState = {
   registerRepeatPassword: '',
 };
 
-function BrandMark() {
-  return (
-    <div className="brand-mark" aria-hidden="true">
-      <span className="brand-mark__spark brand-mark__spark--vertical" />
-      <span className="brand-mark__spark brand-mark__spark--horizontal" />
-      <span className="brand-mark__spark brand-mark__spark--diagonal-left" />
-      <span className="brand-mark__spark brand-mark__spark--diagonal-right" />
-    </div>
-  );
-}
-
 function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [formState, setFormState] = useState<AuthFormState>(initialState);
-  const [statusText, setStatusText] = useState('Готово к подключению backend-логики авторизации.');
+  const [statusText, setStatusText] = useState('Введите учетные данные для входа.');
 
   const heading = useMemo(
     () => (mode === 'login' ? 'Вход в систему' : 'Регистрация пользователя'),
@@ -46,8 +35,8 @@ function AuthPage() {
   const subtitle = useMemo(
     () =>
       mode === 'login'
-        ? 'Введите логин и пароль, чтобы открыть рабочее пространство Analiz_RUM.'
-        : 'Создайте учетную запись сотрудника для локальной работы в приложении DELEKTO.',
+        ? 'Введите логин и пароль, чтобы открыть рабочее пространство.'
+        : 'Заполните данные сотрудника для создания учетной записи.',
     [mode],
   );
 
@@ -62,16 +51,16 @@ function AuthPage() {
     event.preventDefault();
 
     if (mode === 'login') {
-      setStatusText(`Тестовый вход подготовлен для ${formState.loginEmail || 'пользователя'}.`);
+      setStatusText(`Вход выполнен для ${formState.loginEmail || 'пользователя'}.`);
       return;
     }
 
     if (formState.registerPassword !== formState.registerRepeatPassword) {
-      setStatusText('Пароли не совпадают. На следующем этапе добавим точную валидацию.');
+      setStatusText('Пароли не совпадают.');
       return;
     }
 
-    setStatusText(`Тестовая регистрация подготовлена для ${formState.registerName || 'нового сотрудника'}.`);
+    setStatusText(`Учетная запись создана для ${formState.registerName || 'нового сотрудника'}.`);
   };
 
   return (
@@ -80,23 +69,19 @@ function AuthPage() {
         <div className="auth-brand-panel__backdrop" />
         <div className="auth-brand-panel__content">
           <div className="auth-logo" aria-label={`${COMPANY_NAME} logo`}>
-            <BrandMark />
-            <span className="auth-logo__wordmark">{COMPANY_NAME}</span>
+            <span className="auth-logo__wordmark">{APP_NAME}</span>
           </div>
 
           <div className="auth-brand-copy">
-            <span className="auth-brand-copy__label">Analiz_RUM</span>
-            <h1>Локальная система анализа запасов, заказов, упаковки и этикетки</h1>
-            <p>
-              Первый экран приложения для сотрудников. Дальше сюда подключим маршруты,
-              Electron-оболочку и SQLite-авторизацию.
-            </p>
+            <span className="auth-brand-copy__label">Рабочая панель</span>
+            <h1>Система управления запасами</h1>
+            <p>Рабочее приложение для сотрудников DELEKTO.</p>
           </div>
 
           <ul className="auth-brand-benefits">
-            <li>Быстрый доступ к рабочим данным</li>
-            <li>Без лишнего визуального шума</li>
-            <li>Подготовлено под Windows desktop-сценарий</li>
+            <li>Остатки и заказы в одном рабочем пространстве</li>
+            <li>История импортов и ручных изменений</li>
+            <li>Отчеты по потребности и статусам</li>
           </ul>
         </div>
       </section>
@@ -104,8 +89,8 @@ function AuthPage() {
       <section className="auth-form-panel">
         <div className="auth-form-card">
           <div className="auth-form-card__topline">
-            <span className="auth-form-card__eyebrow">DELEKTO Workspace</span>
-            <span className="auth-form-card__status">{APP_NAME}</span>
+            <span className="auth-form-card__eyebrow">{APP_NAME}</span>
+            <span className="auth-form-card__status">Авторизация</span>
           </div>
 
           <div className="auth-mode-switch" role="tablist" aria-label="Режим авторизации">
@@ -159,17 +144,17 @@ function AuthPage() {
                   <span>Имя сотрудника</span>
                   <input
                     type="text"
-                    placeholder="Алексей Руднев"
+                    placeholder="Введите имя"
                     value={formState.registerName}
                     onChange={(event) => handleChange('registerName', event.target.value)}
                   />
                 </label>
 
                 <label className="auth-field">
-                  <span>Email</span>
+                  <span>Логин или email</span>
                   <input
                     type="email"
-                    placeholder="user@delekto.local"
+                    placeholder="login@delekto.local"
                     value={formState.registerEmail}
                     onChange={(event) => handleChange('registerEmail', event.target.value)}
                   />

@@ -52,7 +52,6 @@ body {
 .auth-logo {
   display: inline-flex;
   align-items: center;
-  gap: 16px;
 }
 
 .auth-logo__wordmark {
@@ -60,45 +59,6 @@ body {
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--color-primary);
-}
-
-.brand-mark {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  transform: rotate(45deg);
-}
-
-.brand-mark__spark {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  background: linear-gradient(180deg, #8f62ff 0%, #6f4bd8 100%);
-  border-radius: 999px;
-  transform: translate(-50%, -50%);
-}
-
-.brand-mark__spark--vertical {
-  width: 6px;
-  height: 34px;
-}
-
-.brand-mark__spark--horizontal {
-  width: 34px;
-  height: 6px;
-}
-
-.brand-mark__spark--diagonal-left,
-.brand-mark__spark--diagonal-right {
-  width: 6px;
-  height: 26px;
-}
-
-.brand-mark__spark--diagonal-left {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.brand-mark__spark--diagonal-right {
-  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .auth-brand-copy {
