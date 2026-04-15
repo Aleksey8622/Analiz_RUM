@@ -1,8 +1,8 @@
 import './styles/theme.css';
-import AuthPage from './features/auth/AuthPage';
+import AppRoutes from './routes';
 
 function App() {
-  return <AuthPage />;
+  return <AppRoutes />;
 }
 
 export default App;

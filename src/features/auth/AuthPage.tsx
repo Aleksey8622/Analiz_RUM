@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { APP_NAME, COMPANY_NAME } from '../../lib/config';
 import './AuthPage.css';
 
@@ -23,6 +24,7 @@ const initialState: AuthFormState = {
 };
 
 function AuthPage() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>('login');
   const [formState, setFormState] = useState<AuthFormState>(initialState);
   const [statusText, setStatusText] = useState('Введите учетные данные для входа.');
@@ -51,7 +53,7 @@ function AuthPage() {
     event.preventDefault();
 
     if (mode === 'login') {
-      setStatusText(`Вход выполнен для ${formState.loginEmail || 'пользователя'}.`);
+      navigate('/workspace');
       return;
     }
 
