@@ -1,5 +1,14 @@
-import { APP_NAME } from '../../lib/config';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './DashboardPage.css';
+
+type FilterRow = {
+  id: number;
+  field: string;
+  operator: string;
+  value: string;
+};
+
+type FilterInputName = Exclude<keyof FilterRow, 'id'>;
 
 const rows = [
   {
@@ -37,17 +46,115 @@ const rows = [
   },
 ];
 
+const filterFields = ['Группа закупок', 'Заказ промо', 'Дата заказа', 'Поставщик', 'Группа'];
+const filterOperators = ['Содержит', 'Равно', 'Не равно', 'Больше', 'Меньше'];
+
 function DashboardPage() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<FilterRow[]>([]);
+  const [activeFilters, setActiveFilters] = useState<FilterRow[]>([]);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const filterAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!sidebarRef.current || sidebarRef.current.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsSidebarOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!filterAreaRef.current || filterAreaRef.current.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsFilterPanelOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, []);
+
+  const visibleFilters = useMemo(
+    () => activeFilters.filter((filter) => filter.field || filter.operator || filter.value),
+    [activeFilters],
+  );
+
+  const handleFilterChange = (id: number, field: FilterInputName, value: string) => {
+    setDraftFilters((current) =>
+      current.map((filter) => (filter.id === id ? { ...filter, [field]: value } : filter)),
+    );
+  };
+
+  const addFilter = () => {
+    setDraftFilters((current) => [
+      ...current,
+      {
+        id: Date.now(),
+        field: '',
+        operator: '',
+        value: '',
+      },
+    ]);
+  };
+
+  const removeFilter = (id: number) => {
+    setDraftFilters((current) => current.filter((filter) => filter.id !== id));
+  };
+
+  const applyFilters = () => {
+    setActiveFilters(draftFilters.filter((filter) => filter.field || filter.operator || filter.value));
+    setIsFilterPanelOpen(false);
+  };
+
+  const clearFilters = () => {
+    setDraftFilters([]);
+    setActiveFilters([]);
+    setIsFilterPanelOpen(false);
+  };
+
   return (
     <main className="dashboard-page">
-      <aside className="dashboard-sidebar" aria-label="Основная навигация">
-        <div className="dashboard-sidebar__brand">{APP_NAME}</div>
+      <aside
+        ref={sidebarRef}
+        className={`dashboard-sidebar ${isSidebarOpen ? 'is-open' : ''}`}
+        aria-label="Основная навигация"
+      >
+        <button
+          className="dashboard-sidebar__toggle"
+          type="button"
+          aria-label={isSidebarOpen ? 'Закрыть меню' : 'Открыть меню'}
+          aria-expanded={isSidebarOpen}
+          onClick={() => setIsSidebarOpen((current) => !current)}
+        >
+          <svg className="dashboard-sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+          <span>Меню</span>
+        </button>
         <nav className="dashboard-sidebar__nav">
-          <a className="is-active" href="/workspace">Текущие заказы</a>
-          <a href="/workspace">Отчет</a>
-          <a href="/workspace">Автозаказы</a>
-          <a href="/workspace">Настройки таблицы</a>
+          <a href="/workspace">Анализ</a>
         </nav>
+        <a className="dashboard-sidebar__logout" href="/" aria-label="Выход">
+          <svg className="dashboard-sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 6H6v12h4M13 8l4 4-4 4M8 12h9" />
+          </svg>
+          <span>Выйти</span>
+        </a>
       </aside>
 
       <section className="dashboard-workspace">
@@ -66,11 +173,120 @@ function DashboardPage() {
           </div>
         </header>
 
-        <div className="dashboard-filters" aria-label="Фильтры заказов">
-          <button type="button">Группа закупок</button>
-          <button type="button">Заказ промо</button>
-          <button type="button">Дата заказа</button>
-          <button type="button">Очистить</button>
+        <div className="dashboard-filters" ref={filterAreaRef} aria-label="Фильтры заказов">
+          <button
+            className="dashboard-filter-icon"
+            type="button"
+            aria-label="Открыть фильтры"
+            aria-expanded={isFilterPanelOpen}
+            onClick={() => setIsFilterPanelOpen((current) => !current)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+          </button>
+
+          <div className="dashboard-filter-tags" aria-label="Активные фильтры">
+            {visibleFilters.map((filter) => (
+              <span className="dashboard-filter-tag" key={filter.id}>
+                {[filter.field, filter.operator, filter.value].filter(Boolean).join(' ')}
+              </span>
+            ))}
+          </div>
+
+          <button className="dashboard-clear-button" type="button" onClick={clearFilters}>
+            Очистить
+          </button>
+
+          {isFilterPanelOpen && (
+            <>
+              <button
+                className="dashboard-filter-backdrop"
+                type="button"
+                aria-label="Закрыть фильтры"
+                onClick={() => setIsFilterPanelOpen(false)}
+              />
+              <aside className="dashboard-filter-panel" aria-label="Коллектор фильтров">
+                <div className="dashboard-filter-panel__header">
+                  <h2>Коллектор фильтров</h2>
+                  <button
+                    className="dashboard-filter-close"
+                    type="button"
+                    aria-label="Закрыть фильтры"
+                    onClick={() => setIsFilterPanelOpen(false)}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M7 7l10 10M17 7L7 17" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="dashboard-filter-panel__body">
+                  {draftFilters.map((filter) => (
+                    <div className="dashboard-filter-row" key={filter.id}>
+                      <select
+                        value={filter.field}
+                        aria-label="Поле фильтра"
+                        onChange={(event) => handleFilterChange(filter.id, 'field', event.target.value)}
+                      >
+                        <option value="">Поле</option>
+                        {filterFields.map((field) => (
+                          <option value={field} key={field}>
+                            {field}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={filter.operator}
+                        aria-label="Условие фильтра"
+                        onChange={(event) => handleFilterChange(filter.id, 'operator', event.target.value)}
+                      >
+                        <option value="">Условие</option>
+                        {filterOperators.map((operator) => (
+                          <option value={operator} key={operator}>
+                            {operator}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        type="text"
+                        value={filter.value}
+                        aria-label="Значение фильтра"
+                        placeholder="Значение"
+                        onChange={(event) => handleFilterChange(filter.id, 'value', event.target.value)}
+                      />
+
+                      <button
+                        className="dashboard-filter-remove"
+                        type="button"
+                        aria-label="Удалить фильтр"
+                        onClick={() => removeFilter(filter.id)}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M7 7l10 10M17 7L7 17" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button className="dashboard-add-filter" type="button" onClick={addFilter}>
+                  Добавить фильтр
+                </button>
+
+                <div className="dashboard-filter-panel__actions">
+                  <button className="dashboard-button dashboard-button--primary" type="button" onClick={applyFilters}>
+                    Применить
+                  </button>
+                  <button className="dashboard-filter-cancel" type="button" onClick={() => setIsFilterPanelOpen(false)}>
+                    Отменить
+                  </button>
+                </div>
+              </aside>
+            </>
+          )}
         </div>
 
         <div className="dashboard-table-shell">
