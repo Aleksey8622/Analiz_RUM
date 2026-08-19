@@ -20,6 +20,11 @@ import {
   type SupplyColumnKey,
   type SupplyReportRow,
 } from '../../store/workspaceSlice';
+import { SourceReport, type SourceReportColumn, type SourceReportRow } from './SourceReport';
+import { ItemsDirectory, type DirectoryPosition } from './ItemsDirectory';
+import { SleeveAnalysis } from './SleeveAnalysis';
+import { useDraggableModal } from '../../components/ui/useDraggableModal';
+import { exportAnalysisWorkbook, exportSupplyWorkbook } from './exportWorkbook';
 import './DashboardPage.css';
 
 type FilterRow = {
@@ -32,11 +37,13 @@ type FilterRow = {
 type FilterInputName = Exclude<keyof FilterRow, 'id'>;
 
 type StockStatus = 'critical' | 'low' | 'blocked' | 'normal' | 'check';
-type WorkspaceSection = 'analysis' | 'supply-report' | 'bom' | 'items-directory';
+type WorkspaceSection = 'analysis' | 'sleeves' | 'supply-plan' | 'workshop-stock' | 'warehouse-stock' | 'bom' | 'supply-report' | 'blocked-stock' | 'items-directory';
 
 type PackagingItem = {
   code: string;
   name: string;
+  comment?: string;
+  palletMultiple?: number;
   dailyForecast: number;
   stockDays: number | null;
   stockProductionDays: number | null;
@@ -79,6 +86,44 @@ type SupplierView = Supplier & {
   visibleItems: PackagingItem[];
 };
 
+type SelectedPackagingItem = {
+  item: PackagingItem;
+  supplier: Supplier;
+};
+
+type SupplierPlanRow = {
+  quantity: number;
+  date: string;
+};
+
+type SavedSupplyPlan = SupplierPlanRow & {
+  supplierId: string;
+  itemCode: string;
+};
+
+type PackagingCategoryGroup = {
+  id: string;
+  title: string;
+  description: string;
+  suppliers: SupplierView[];
+  itemCount: number;
+};
+
+const packagingSections = [
+  {
+    id: 'trays',
+    title: 'Лотки · ФКД · долгопродный',
+    description: 'Только лотки',
+    categories: ['Лотки', 'Индивидуальная упаковка'],
+  },
+  {
+    id: 'film-corrugated-boxes',
+    title: 'Плёнки · гофра · короба · ФКД · долгопродный',
+    description: 'Плёнки, гофра, короба и сопутствующая упаковка',
+    categories: ['Пленка', 'Плёнки', 'Гофра', 'Короба', 'Гофра и короба', 'Упаковка'],
+  },
+] as const;
+
 const suppliers: Supplier[] = [
   {
     id: 'milk-pack',
@@ -90,6 +135,8 @@ const suppliers: Supplier[] = [
       {
         code: 'PK-100245',
         name: 'Пленка термоусадочная 40 мкм',
+        comment: 'Минимум 2 паллеты, основной поставщик',
+        palletMultiple: 15000,
         dailyForecast: 4260,
         stockDays: 2.8,
         stockProductionDays: 5.6,
@@ -107,6 +154,8 @@ const suppliers: Supplier[] = [
       {
         code: 'PK-100318',
         name: 'Пленка групповая прозрачная 60 мкм',
+        comment: 'Проверить блок перед размещением',
+        palletMultiple: 12000,
         dailyForecast: 8600,
         stockDays: 6.4,
         stockProductionDays: 9.2,
@@ -124,6 +173,8 @@ const suppliers: Supplier[] = [
       {
         code: 'PK-100602',
         name: 'Пленка паллетная машинная',
+        comment: 'Стандартная кратность поставки',
+        palletMultiple: 10000,
         dailyForecast: 10300,
         stockDays: 11.5,
         stockProductionDays: 16.8,
@@ -150,6 +201,8 @@ const suppliers: Supplier[] = [
       {
         code: 'GF-220014',
         name: 'Гофролист бурый 1200x800',
+        comment: 'Заказ кратно одной машине',
+        palletMultiple: 18000,
         dailyForecast: 7200,
         stockDays: 4.1,
         stockProductionDays: 7.3,
@@ -167,6 +220,7 @@ const suppliers: Supplier[] = [
       {
         code: 'GF-220077',
         name: 'Прокладка гофрокартонная 3 слоя',
+        palletMultiple: 15000,
         dailyForecast: 7550,
         stockDays: 8.9,
         stockProductionDays: 13.1,
@@ -193,6 +247,8 @@ const suppliers: Supplier[] = [
       {
         code: 'BX-340071',
         name: 'Короб транспортный 12 бутылок',
+        comment: 'Критичная позиция',
+        palletMultiple: 20000,
         dailyForecast: 7050,
         stockDays: 1.6,
         stockProductionDays: 3.4,
@@ -210,6 +266,8 @@ const suppliers: Supplier[] = [
       {
         code: 'BX-340144',
         name: 'Короб шоу-бокс молочная линейка',
+        comment: 'Нет утверждённого прогноза',
+        palletMultiple: 8000,
         dailyForecast: 2400,
         stockDays: null,
         stockProductionDays: 4.8,
@@ -227,6 +285,8 @@ const suppliers: Supplier[] = [
       {
         code: 'BX-340188',
         name: 'Короб архивный для промонаборов',
+        comment: 'Позиция временно заблокирована',
+        palletMultiple: 10000,
         dailyForecast: 4450,
         stockDays: 7.2,
         stockProductionDays: 10.5,
@@ -253,6 +313,7 @@ const suppliers: Supplier[] = [
       {
         code: 'LT-510022',
         name: 'Лоток картонный 6 ячеек',
+        palletMultiple: 12000,
         dailyForecast: 4650,
         stockDays: 9.8,
         stockProductionDays: 14.4,
@@ -270,6 +331,8 @@ const suppliers: Supplier[] = [
       {
         code: 'LT-510039',
         name: 'Лоток усиленный под стакан',
+        comment: 'Альтернативный поставщик согласован',
+        palletMultiple: 15000,
         dailyForecast: 5350,
         stockDays: 5.1,
         stockProductionDays: 6.7,
@@ -288,8 +351,8 @@ const suppliers: Supplier[] = [
   },
 ];
 
-const analysisSupplierFilterFields = ['Поставщик', 'Код позиции', 'Позиция'];
-const analysisPositionFilterFields = ['Код позиции', 'Позиция', 'Статус', 'Дата поставки', 'ТЗ склад', 'Прогноз/день'];
+const analysisFilterFields = ['Код позиции', 'Название позиции', 'Поставщик'];
+const analysisFilterFieldSet = new Set(analysisFilterFields);
 const supplyFilterFields = [
   'Поставщик',
   'Дата заказа',
@@ -311,12 +374,8 @@ const supplyFieldMap: Record<string, SupplyColumnKey> = {
 const analysisSupplierFields = new Set(['Поставщик']);
 const analysisItemFieldMap: Record<string, keyof PackagingItem | 'statusLabel'> = {
   'Код позиции': 'code',
+  'Название позиции': 'name',
   Позиция: 'name',
-  Статус: 'statusLabel',
-  'ТЗ склад': 'stockDays',
-  'Прогноз/день': 'dailyForecast',
-  'Кол-во поставки': 'plannedDeliveryQty',
-  'Дата поставки': 'deliveryDate',
 };
 
 const statusLabels: Record<StockStatus, string> = {
@@ -330,6 +389,42 @@ const statusLabels: Record<StockStatus, string> = {
 const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 
 const formatDays = (value: number | null) => (value === null ? 'Нет данных' : `${value.toFixed(1)} дн.`);
+
+const getDaysUntil = (value: string) => {
+  const [day, month, year] = value.split('.').map(Number);
+
+  if (!day || !month || !year) return 0;
+
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const target = new Date(year, month - 1, day);
+
+  if (Number.isNaN(target.getTime())) return 0;
+
+  return Math.max(0, Math.ceil((target.getTime() - start.getTime()) / 86_400_000));
+};
+
+const calculatePlannedStock = (item: PackagingItem, plan: SupplierPlanRow) => {
+  const daysUntilDelivery = getDaysUntil(plan.date);
+  const stockOnDelivery = Math.max(0, item.totalStock - item.dailyForecast * daysUntilDelivery);
+  const futureStock = stockOnDelivery + plan.quantity;
+
+  return {
+    currentDays: item.totalStock / Math.max(item.dailyForecast, 1),
+    stockOnDelivery,
+    futureStock,
+    futureDays: futureStock / Math.max(item.dailyForecast, 1),
+  };
+};
+
+const loadSavedSupplyPlans = (): SavedSupplyPlan[] => {
+  try {
+    const saved = window.localStorage.getItem('analiz-rum:supply-plans');
+    return saved ? JSON.parse(saved) as SavedSupplyPlan[] : [];
+  } catch {
+    return [];
+  }
+};
 
 const parseFilterValues = (value: string) =>
   value
@@ -352,11 +447,7 @@ const getFilterValuePlaceholder = (field: string) => {
   const placeholders: Record<string, string> = {
     Поставщик: 'Название поставщика или список поставщиков',
     'Код позиции': 'Коды позиций, каждый с новой строки',
-    Позиция: 'Наименование позиции или часть наименования',
-    Статус: 'Статус позиции',
-    'Дата поставки': 'Дата поставки или список дат',
-    'ТЗ склад': 'Значение ТЗ на складе',
-    'Прогноз/день': 'Средний суточный прогноз',
+    'Название позиции': 'Название или часть названия; можно вставить список',
     'Дата заказа': 'Дата формирования заказа',
     'Номер заказа': 'Номер заказа или список заказов',
     'Код товара': 'Код товара или список кодов',
@@ -367,21 +458,36 @@ const getFilterValuePlaceholder = (field: string) => {
 
 const analysisColumns: AnalysisColumn[] = [
   { key: 'code', label: 'Код', width: 108 },
-  { key: 'name', label: 'Позиция', width: 300 },
+  { key: 'name', label: 'Наименование позиции', width: 300 },
   { key: 'dailyForecast', label: 'Прогноз/день', width: 112, align: 'right' },
   { key: 'stockDays', label: 'ТЗ склад, дн.', width: 112, align: 'right' },
   { key: 'stockProductionDays', label: 'ТЗ склад+пр-во, дн.', width: 142, align: 'right' },
-  { key: 'blocked', label: 'Блок', width: 90, align: 'right' },
-  { key: 'warehouse', label: 'Склад', width: 122, align: 'right' },
-  { key: 'production', label: 'Производство', width: 122, align: 'right' },
+  { key: 'blocked', label: 'Запас в блоке', width: 112, align: 'right' },
+  { key: 'warehouse', label: 'Остаток склад', width: 128, align: 'right' },
+  { key: 'production', label: 'Остаток производства', width: 148, align: 'right' },
   { key: 'totalStock', label: 'Общий остаток', width: 122, align: 'right' },
-  { key: 'supplyRemainder', label: 'Остаток поставки', width: 132, align: 'right' },
-  { key: 'plannedDeliveryQty', label: 'Кол-во поставки', width: 132, align: 'right' },
-  { key: 'deliveryDate', label: 'Дата поставки', width: 118, align: 'center' },
-  { key: 'stockDaysOnDelivery', label: 'ТЗ на дату', width: 112, align: 'right' },
-  { key: 'futureStockDays', label: 'Будущий ТЗ', width: 112, align: 'right' },
   { key: 'status', label: 'Статус', width: 100, align: 'center' },
 ];
+
+const supplyPlanColumns: SourceReportColumn[] = [
+  { key: 'itemCode', label: 'Код', width: 115 },
+  { key: 'itemName', label: 'Наименование позиции', width: 280 },
+  { key: 'supplier', label: 'Поставщик', width: 190 },
+  { key: 'currentStock', label: 'Текущий остаток', width: 145, align: 'right' },
+  { key: 'currentDays', label: 'Текущий ТЗ', width: 115, align: 'right' },
+  { key: 'quantity', label: 'План поставки', width: 145, align: 'right' },
+  { key: 'date', label: 'Дата поставки', width: 135, align: 'center' },
+  { key: 'futureStock', label: 'Будущий остаток', width: 155, align: 'right' },
+  { key: 'futureDays', label: 'Будущий ТЗ', width: 120, align: 'right' },
+];
+
+const getAnalysisColumnGroup = (columnKey: AnalysisColumnKey) => {
+  if (columnKey === 'code' || columnKey === 'name') return 'position';
+  if (['dailyForecast', 'stockDays', 'stockProductionDays'].includes(columnKey)) return 'coverage';
+  if (['blocked', 'warehouse', 'production', 'totalStock'].includes(columnKey)) return 'stock';
+  if (['supplyRemainder', 'plannedDeliveryQty', 'deliveryDate'].includes(columnKey)) return 'delivery';
+  return 'result';
+};
 
 const getAnalysisCellValue = (item: PackagingItem, columnKey: AnalysisColumnKey) => {
   if (columnKey === 'stockDays' || columnKey === 'stockProductionDays' || columnKey === 'stockDaysOnDelivery' || columnKey === 'futureStockDays') {
@@ -407,85 +513,85 @@ const getAnalysisCellValue = (item: PackagingItem, columnKey: AnalysisColumnKey)
 };
 
 const supplyColumns: SupplyColumn[] = [
-  { key: 'weekOrDebt', label: 'Неделя/долг', width: 110 },
+  { key: 'weekOrDebt', label: 'Номер недели/долг', width: 135 },
   { key: 'supplyRemainder', label: 'Остаток поставки', width: 140, align: 'right' },
-  { key: 'supplierCode', label: 'Код поставщика', width: 130 },
+  { key: 'supplierCode', label: 'Поставщик', width: 130 },
   { key: 'supplierName', label: 'Наименование поставщика', width: 220 },
-  { key: 'orderCreatedAt', label: 'Дата формирования заказа', width: 170 },
+  { key: 'orderCreatedAt', label: 'Дата заказа', width: 125 },
   { key: 'plannedDeliveryAt', label: 'Плановая дата поставки', width: 160 },
-  { key: 'deliveredAt', label: 'Дата поставлена', width: 130 },
-  { key: 'orderNumber', label: 'Номер заказа', width: 130 },
-  { key: 'itemCode', label: 'Код товара', width: 115 },
+  { key: 'deliveredAt', label: 'Дата поставлено', width: 130 },
+  { key: 'orderNumber', label: '№ заказа', width: 130 },
+  { key: 'itemCode', label: '№ товара', width: 115 },
   { key: 'itemName', label: 'Наименование товара', width: 260 },
-  { key: 'orderedQty', label: 'Заказано', width: 120, align: 'right' },
-  { key: 'deliveredQty', label: 'Поставлено', width: 120, align: 'right' },
-  { key: 'orderType', label: 'Вид заказа', width: 105, align: 'center' },
-  { key: 'deleted', label: 'Удалена', width: 95, align: 'center' },
+  { key: 'orderedQty', label: 'Количество заказано', width: 150, align: 'right' },
+  { key: 'deliveredQty', label: 'Количество поставлено', width: 155, align: 'right' },
+  { key: 'orderType', label: 'ВидЗаказаНаПоставку', width: 165, align: 'center' },
+  { key: 'deleted', label: 'Удалено', width: 95, align: 'center' },
   { key: 'returnFlag', label: 'Возврат', width: 95, align: 'center' },
-  { key: 'orderStatus', label: 'Статус заказа', width: 150 },
-  { key: 'unit', label: 'ЕИ', width: 80, align: 'center' },
+  { key: 'orderStatus', label: 'Наименование статуса заказа', width: 195 },
+  { key: 'unit', label: 'Единица измерения', width: 130, align: 'center' },
 ];
 
 const supplyRows: SupplyReportRow[] = [
   {
     id: 's-001',
-    weekOrDebt: '21 неделя',
-    supplyRemainder: 85000,
-    supplierCode: '100452',
-    supplierName: 'МолПак Сервис',
-    orderCreatedAt: '16.05.2026',
-    plannedDeliveryAt: '28.05.2026',
-    deliveredAt: '',
-    orderNumber: '4500128841',
-    itemCode: 'PK-100245',
-    itemName: 'Пленка термоусадочная 40 мкм',
-    orderedQty: 180000,
-    deliveredQty: 95000,
+    weekOrDebt: 'долг',
+    supplyRemainder: 0,
+    supplierCode: 'DEMO-001',
+    supplierName: 'ООО "ПакТест"',
+    orderCreatedAt: '05.01.2026',
+    plannedDeliveryAt: '19.01.2026',
+    deliveredAt: '18.01.2026',
+    orderNumber: 'DEMO-ORDER-001',
+    itemCode: 'DEMO-TRAY-01',
+    itemName: 'Демо-лоток пищевой прозрачный',
+    orderedQty: 12000,
+    deliveredQty: 12000,
     orderType: 'ZFKR',
-    deleted: 'Нет',
-    returnFlag: 'Нет',
-    orderStatus: 'Открыт',
-    unit: 'шт',
+    deleted: '',
+    returnFlag: '',
+    orderStatus: 'Размещен',
+    unit: 'ШТ',
   },
   {
     id: 's-002',
-    weekOrDebt: 'Долг',
-    supplyRemainder: 30000,
-    supplierCode: '100817',
-    supplierName: 'Формат Короб',
-    orderCreatedAt: '07.05.2026',
-    plannedDeliveryAt: '17.05.2026',
-    deliveredAt: '',
-    orderNumber: '4500127410',
-    itemCode: 'BX-340071',
-    itemName: 'Короб транспортный 12 бутылок',
-    orderedQty: 160000,
-    deliveredQty: 130000,
+    weekOrDebt: 'долг',
+    supplyRemainder: 0,
+    supplierCode: 'DEMO-001',
+    supplierName: 'ООО "ПакТест"',
+    orderCreatedAt: '02.02.2026',
+    plannedDeliveryAt: '16.02.2026',
+    deliveredAt: '20.02.2026',
+    orderNumber: 'DEMO-ORDER-002',
+    itemCode: 'DEMO-CUP-02',
+    itemName: 'Демо-контейнер с крышкой 100 мл',
+    orderedQty: 24000,
+    deliveredQty: 24000,
     orderType: 'ZFKR',
-    deleted: 'Нет',
-    returnFlag: 'Нет',
-    orderStatus: 'Просрочен',
-    unit: 'шт',
+    deleted: '',
+    returnFlag: '',
+    orderStatus: 'Размещен',
+    unit: 'ШТ',
   },
   {
     id: 's-003',
-    weekOrDebt: '22 неделя',
-    supplyRemainder: 44000,
-    supplierCode: '100623',
-    supplierName: 'ГофроЛайн Север',
-    orderCreatedAt: '18.05.2026',
-    plannedDeliveryAt: '29.05.2026',
-    deliveredAt: '',
-    orderNumber: '4500129035',
-    itemCode: 'GF-220014',
-    itemName: 'Гофролист бурый 1200x800',
-    orderedQty: 90000,
-    deliveredQty: 46000,
+    weekOrDebt: 'долг',
+    supplyRemainder: 6000,
+    supplierCode: 'DEMO-001',
+    supplierName: 'ООО "ПакТест"',
+    orderCreatedAt: '10.03.2026',
+    plannedDeliveryAt: '24.03.2026',
+    deliveredAt: '30.03.2026',
+    orderNumber: 'DEMO-ORDER-003',
+    itemCode: 'DEMO-TRAY-03',
+    itemName: 'Демо-лоток бумажный усиленный',
+    orderedQty: 36000,
+    deliveredQty: 30000,
     orderType: 'ZFKR',
-    deleted: 'Нет',
-    returnFlag: 'Нет',
-    orderStatus: 'Частично поставлен',
-    unit: 'кг',
+    deleted: '',
+    returnFlag: '',
+    orderStatus: 'Размещен',
+    unit: 'ШТ',
   },
   {
     id: 's-004',
@@ -529,6 +635,107 @@ const supplyRows: SupplyReportRow[] = [
   },
 ];
 
+const workshopStockColumns: SourceReportColumn[] = [
+  { key: 'materialNumber', label: 'Номер материала', width: 145 },
+  { key: 'plant', label: 'Завод', width: 85 },
+  { key: 'batch', label: 'Партия', width: 135 },
+  { key: 'warehouse', label: 'Склад', width: 90 },
+  { key: 'unit', label: 'ЕдИзмерения', width: 115 },
+  { key: 'freeStock', label: 'СвобИспользЗпс', width: 145, align: 'right' },
+  { key: 'qualityStock', label: 'НаКонтрКачества', width: 145, align: 'right' },
+  { key: 'blocked', label: 'Блокированный', width: 135, align: 'right' },
+  { key: 'materialType', label: 'Вид материала', width: 130 },
+  { key: 'madeAt', label: 'Д/Изготовления', width: 130 },
+  { key: 'shelfLife', label: 'СрокХранен/МсГ', width: 145 },
+  { key: 'lastMovement', label: 'Последнее ПМ', width: 125 },
+];
+
+const workshopStockRows: SourceReportRow[] = [
+  { id: 'ws-1', materialNumber: '152', plant: 'FK01', batch: '0000265174', warehouse: 'F013', unit: 'КГ', freeStock: '136,589', qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '18.06.2026', shelfLife: '46556', lastMovement: '08.07.2026' },
+  { id: 'ws-2', materialNumber: '152', plant: 'FK01', batch: '0000265394', warehouse: 'F013', unit: 'КГ', freeStock: 500, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '24.06.2026', shelfLife: '46562', lastMovement: '10.07.2026' },
+  { id: 'ws-3', materialNumber: '2745', plant: 'FK01', batch: '0000266119', warehouse: 'F013', unit: 'КГ', freeStock: 925, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '11.08.2025', shelfLife: '46610', lastMovement: '15.07.2026' },
+  { id: 'ws-4', materialNumber: '4920', plant: 'FK01', batch: '0000265578', warehouse: 'F013', unit: 'КГ', freeStock: 700, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '10.03.2026', shelfLife: '47552', lastMovement: '11.07.2026' },
+  { id: 'ws-5', materialNumber: '6788', plant: 'FK01', batch: '0000264887', warehouse: 'F013', unit: 'ШТ', freeStock: '320,105', qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '20.06.2026', shelfLife: '46923', lastMovement: '06.07.2026' },
+  { id: 'ws-6', materialNumber: '82117', plant: 'FK01', batch: '1000125748', warehouse: 'B011', unit: 'КГ', freeStock: 0, qualityStock: '168,52', blocked: 0, materialType: 'ZFRE', madeAt: '02.07.2026', shelfLife: '46385', lastMovement: '14.07.2026' },
+];
+
+const warehouseStockColumns: SourceReportColumn[] = [
+  { key: 'restrictedBatch', label: 'Партия ОграничИспольз', width: 190 },
+  { key: 'warehouseType', label: 'Тип склада', width: 115 },
+  { key: 'storageBin', label: 'Складское место', width: 145 },
+  { key: 'handlingUnit', label: 'Единица обработки', width: 155 },
+  { key: 'product', label: 'Продукт', width: 125 },
+  { key: 'consolidationGroup', label: 'Группа консолидации', width: 170 },
+  { key: 'productDescription', label: 'Краткое описание продукта', width: 300 },
+  { key: 'quantity', label: 'Количество', width: 120, align: 'right' },
+  { key: 'baseUnit', label: 'Базисная ЕИ', width: 105 },
+  { key: 'movementDate', label: 'Дата ПМ', width: 120 },
+  { key: 'shelfLife', label: 'Срок хранения/МсГ', width: 155 },
+  { key: 'batch', label: 'Партия', width: 130 },
+  { key: 'stockType', label: 'Вид запаса', width: 115 },
+  { key: 'movementTime', label: 'Время ПМ', width: 110 },
+  { key: 'topHandlingUnit', label: 'ЕО верхнего уровня', width: 155 },
+  { key: 'document', label: 'Документ', width: 125 },
+  { key: 'parentHandlingUnit', label: 'Вышестоящая ЕО', width: 145 },
+  { key: 'resource', label: 'Ресурс', width: 120 },
+];
+
+const warehouseStockRows: SourceReportRow[] = [
+  { id: 'wh-1', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045770', product: '4419856', consolidationGroup: '', productDescription: 'ТЕНДЕР Крев.ван.б/г оч.б/пиц.тр.зам.1кг', quantity: 360, baseUnit: 'КГ', movementDate: '20.07.2026', shelfLife: '46722', batch: '1000126066', stockType: 'Q3', movementTime: '0,510520833', topHandlingUnit: '1100903497', document: '3773637', parentHandlingUnit: '1100903497', resource: '' },
+  { id: 'wh-2', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045791', product: '419856', consolidationGroup: '', productDescription: 'ТЕНДЕР Крев.ван.б/г оч.б/пиц.тр.зам.1кг', quantity: 360, baseUnit: 'КГ', movementDate: '20.07.2026', shelfLife: '46722', batch: '1000126066', stockType: 'Q3', movementTime: '0,51056713', topHandlingUnit: '1100903498', document: '3773637', parentHandlingUnit: '1100903498', resource: '' },
+  { id: 'wh-3', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045994', product: '4179931', consolidationGroup: '', productDescription: 'ТЕНДЕР Рис пропаренный 1кг', quantity: 500, baseUnit: 'КГ', movementDate: '21.07.2026', shelfLife: '46883', batch: '0000266751', stockType: 'Q3', movementTime: '0,354305556', topHandlingUnit: '1100903893', document: '3775115', parentHandlingUnit: '1100903893', resource: '' },
+  { id: 'wh-4', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045995', product: '4393071', consolidationGroup: '', productDescription: 'Крупа рисовая шлифованная 1кг', quantity: 500, baseUnit: 'КГ', movementDate: '21.07.2026', shelfLife: '46905', batch: '0000266752', stockType: 'Q3', movementTime: '0,354328704', topHandlingUnit: '1100903894', document: '3775115', parentHandlingUnit: '1100903894', resource: '' },
+];
+
+const bomColumns: SourceReportColumn[] = [
+  { key: 'level', label: 'Уровень разузловки', width: 155 },
+  { key: 'position', label: 'Позиция', width: 105 },
+  { key: 'materialType', label: 'Вид материала', width: 125 },
+  { key: 'componentNumber', label: '№ компонента', width: 135 },
+  { key: 'materialText', label: 'Краткий текст материала', width: 310 },
+  { key: 'phantomNode', label: 'Фиктивный узел', width: 135 },
+  { key: 'alternativePosition', label: 'Альтернативная позиция', width: 165 },
+  { key: 'rankedList', label: 'Ранговый список', width: 135 },
+  { key: 'alternativeGroup', label: 'ГруппаАльтПоз', width: 135 },
+  { key: 'mainPlu', label: 'Основное PLU', width: 125 },
+  { key: 'materialText1', label: 'Краткий текст материала_1', width: 310 },
+  { key: 'node', label: 'Узел', width: 90 },
+  { key: 'componentQty', label: 'Кол-во компон. (БЕИ)', width: 165, align: 'right' },
+  { key: 'baseUnit', label: 'БЕИ', width: 80 },
+];
+
+const bomRows: SourceReportRow[] = [
+  { id: 'bom-1', level: 0, position: '', materialType: 'ZFRT', componentNumber: '3681003', materialText: 'ФК Каша молочная рисовая 250г', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: 'X', componentQty: 12147, baseUnit: 'ШТ' },
+  { id: 'bom-2', level: 1, position: '0050', materialType: 'ZHBE', componentNumber: '80396576', materialText: 'Лоток РР 115*57 прозрачный 350 мл', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: '', componentQty: 12147, baseUnit: 'ШТ' },
+  { id: 'bom-3', level: 1, position: '0060', materialType: 'ZHBE', componentNumber: '80371309', materialText: 'Пленка ПЭТ/ПЭ 420мм 42 мкм (peel без AF)', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: '', componentQty: '21,865', baseUnit: 'КГ' },
+  { id: 'bom-4', level: 3, position: '0010', materialType: 'ZFOD', componentNumber: '4920', materialText: 'ПР-ВО Сахар-песок весовой 1кг', phantomNode: 'X', alternativePosition: '', rankedList: 1, alternativeGroup: 1, mainPlu: '4920', materialText1: 'ПР-ВО Сахар-песок весовой 1кг', node: '', componentQty: '105,924', baseUnit: 'КГ' },
+  { id: 'bom-5', level: 3, position: '0020', materialType: 'ZFOD', componentNumber: '3230973', materialText: 'ТЕНДЕР Сахар-песок/Сахар белый 5кг', phantomNode: 'X', alternativePosition: '', rankedList: 2, alternativeGroup: 1, mainPlu: '4920', materialText1: 'ПР-ВО Сахар-песок весовой 1кг', node: '', componentQty: '21,19', baseUnit: 'ШТ' },
+];
+
+const blockedStockColumns: SourceReportColumn[] = warehouseStockColumns;
+
+const blockedStockRows: SourceReportRow[] = [
+  { id: 'bl-1', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.1', handlingUnit: '1300613553', product: '80259508', consolidationGroup: '', productDescription: 'Форма боул 194*50 PET,500 мкм круглая', quantity: 3840, baseUnit: 'ШТ', movementDate: '44652', shelfLife: '54651', batch: '0000079553', stockType: 'B6', movementTime: '0,543622685', topHandlingUnit: '1300613553', document: '', parentHandlingUnit: '', resource: '' },
+  { id: 'bl-2', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.1', handlingUnit: '1300825768', product: '80279811', consolidationGroup: '', productDescription: 'Мешок конд. В рулоне 55 см (100 шт/уп)', quantity: 25900, baseUnit: 'ШТ', movementDate: '45405', shelfLife: '55403', batch: '0000156564', stockType: 'B6', movementTime: '0,600844907', topHandlingUnit: '1300825768', document: '', parentHandlingUnit: '', resource: '' },
+  { id: 'bl-3', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.3', handlingUnit: '1300614681', product: '80259508', consolidationGroup: '', productDescription: 'Форма боул 194*50 PET,500 мкм круглая', quantity: 3840, baseUnit: 'ШТ', movementDate: '44657', shelfLife: '54656', batch: '0000079857', stockType: 'B6', movementTime: '0,55619213', topHandlingUnit: '1300614681', document: '', parentHandlingUnit: '', resource: '' },
+  { id: 'bl-4', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.3', handlingUnit: '1300712731', product: '80205249', consolidationGroup: '', productDescription: 'Лента подарочная для торта 5 мм', quantity: 240, baseUnit: 'ШТ', movementDate: '45026', shelfLife: '55025', batch: '0000113565', stockType: 'B6', movementTime: '0,447453704', topHandlingUnit: '1300712731', document: '', parentHandlingUnit: '', resource: '' },
+];
+
+const initialDirectoryRows: DirectoryPosition[] = suppliers.flatMap((supplier, supplierIndex) =>
+  supplier.items.map((item) => ({
+    id: `dir-${item.code}-${supplier.id}`,
+    category: supplier.category,
+    plu: item.code,
+    name: item.name,
+    supplier: supplier.name,
+    supplierSapCode: String(400000 + supplierIndex + 1),
+    contractNumber: supplier.contract,
+    basketNumber: `К-${202600 + supplierIndex + 1}`,
+    piecesPerPallet: item.palletMultiple ?? 0,
+    showInAnalysis: true,
+  })),
+);
+
 function DashboardPage() {
   const dispatch = useAppDispatch();
   const {
@@ -545,21 +752,80 @@ function DashboardPage() {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<FilterRow[]>([]);
   const [expandedSuppliers, setExpandedSuppliers] = useState<string[]>([]);
+  const [expandedPackagingSections, setExpandedPackagingSections] = useState<string[]>(() => packagingSections.map((section) => section.id));
+  const [selectedPackagingItem, setSelectedPackagingItem] = useState<SelectedPackagingItem | null>(null);
+  const [selectedSupplierPlan, setSelectedSupplierPlan] = useState<Supplier | null>(null);
+  const [supplierPlanRows, setSupplierPlanRows] = useState<Record<string, SupplierPlanRow>>({});
+  const [savedSupplyPlans, setSavedSupplyPlans] = useState<SavedSupplyPlan[]>(loadSavedSupplyPlans);
+  const [planningQuantity, setPlanningQuantity] = useState(0);
+  const [planningDate, setPlanningDate] = useState('');
+  const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(() => {
+    try {
+      const stored = localStorage.getItem('analiz-rum:items-directory');
+      return stored ? JSON.parse(stored) as DirectoryPosition[] : initialDirectoryRows;
+    } catch {
+      return initialDirectoryRows;
+    }
+  });
+  const filterModalDrag = useDraggableModal(isFilterPanelOpen);
+  const supplierPlanModalDrag = useDraggableModal(Boolean(selectedSupplierPlan));
+  const itemDetailsModalDrag = useDraggableModal(Boolean(selectedPackagingItem));
   const sidebarRef = useRef<HTMLElement>(null);
   const filterAreaRef = useRef<HTMLDivElement>(null);
   const columnAreaRef = useRef<HTMLDivElement>(null);
 
-  const pageStats = useMemo(() => {
-    const items = suppliers.flatMap((supplier) => supplier.items);
+  const analysisSuppliers = useMemo<Supplier[]>(() => {
+    const nextSuppliers = suppliers.map((supplier) => ({
+      ...supplier,
+      items: [...supplier.items],
+    }));
 
-    return {
-      suppliers: suppliers.length,
-      items: items.length,
-      critical: items.filter((item) => item.status === 'critical').length,
-      blocked: items.filter((item) => item.blocked > 0).length,
-      totalStock: items.reduce((sum, item) => sum + item.totalStock, 0),
-    };
-  }, []);
+    directoryPositions.filter((row) => row.showInAnalysis).forEach((row) => {
+      const analysisCategory = row.category === 'Плёнки'
+        ? 'Пленка'
+        : row.category === 'Гофра и короба'
+          ? (/\bкороб/i.test(row.name) ? 'Короба' : 'Гофра')
+          : row.category;
+      let supplier = nextSuppliers.find((candidate) =>
+        candidate.name === row.supplier && candidate.category === analysisCategory,
+      );
+
+      if (!supplier) {
+        supplier = {
+          id: `directory-${row.supplier.toLocaleLowerCase('ru').replace(/[^a-zа-яё0-9]+/gi, '-')}-${analysisCategory.toLocaleLowerCase('ru').replace(/[^a-zа-яё0-9]+/gi, '-')}`,
+          name: row.supplier,
+          contract: row.contractNumber,
+          agreement: row.basketNumber,
+          category: analysisCategory,
+          items: [],
+        };
+        nextSuppliers.push(supplier);
+      }
+
+      if (!supplier.items.some((item) => item.code === row.plu)) {
+        supplier.items.push({
+          code: row.plu,
+          name: row.name,
+          palletMultiple: row.piecesPerPallet,
+          dailyForecast: 0,
+          stockDays: null,
+          stockProductionDays: null,
+          blocked: 0,
+          warehouse: 0,
+          production: 0,
+          totalStock: 0,
+          supplyRemainder: 0,
+          plannedDeliveryQty: 0,
+          deliveryDate: '',
+          stockDaysOnDelivery: null,
+          futureStockDays: null,
+          status: 'check',
+        });
+      }
+    });
+
+    return nextSuppliers;
+  }, [directoryPositions]);
 
   const visibleAnalysisColumnsConfig = useMemo(
     () =>
@@ -574,7 +840,7 @@ function DashboardPage() {
       String(source ?? '').toLowerCase().includes(search.toLowerCase());
     const hasSearch = Boolean(analysisFilters.search.trim());
     const activeAdvancedFilters = analysisFilters.advanced.filter(
-      (filter) => filter.field && filter.operator && filter.value,
+      (filter) => analysisFilterFieldSet.has(filter.field) && filter.operator && filter.value,
     );
     const hasItemFilters = activeAdvancedFilters.some((filter) => !analysisSupplierFields.has(filter.field));
 
@@ -608,7 +874,7 @@ function DashboardPage() {
       return true;
     };
 
-    return suppliers.flatMap((supplier) => {
+    return analysisSuppliers.flatMap((supplier) => {
       const search = analysisFilters.search.trim();
       const supplierMatchesSearch =
         !search || [supplier.name, supplier.contract, supplier.agreement, supplier.category].some((value) => matchesText(value, search));
@@ -632,11 +898,9 @@ function DashboardPage() {
         return [];
       }
 
-      const isSupplierOpened = expandedSuppliers.includes(supplier.id);
-      const shouldFilterInsideOpenedSupplier = isSupplierOpened && !supplierMatchesSearch;
-      const itemsAfterSearch = supplierMatchesSearch && !shouldFilterInsideOpenedSupplier ? supplier.items : matchingItemsBySearch;
+      const itemsAfterSearch = supplierMatchesSearch ? supplier.items : matchingItemsBySearch;
       const visibleItems = itemsAfterSearch.filter((item) => {
-        return activeAdvancedFilters
+        const passesAdvancedFilters = activeAdvancedFilters
           .filter((filter) => !analysisSupplierFields.has(filter.field))
           .every((filter) => {
             const fieldKey = analysisItemFieldMap[filter.field];
@@ -648,6 +912,8 @@ function DashboardPage() {
             const value = fieldKey === 'statusLabel' ? statusLabels[item.status] : item[fieldKey];
             return matchValue(value as string | number | null, filter.operator, filter.value);
           });
+
+        return passesAdvancedFilters;
       });
 
       if (!supplierMatchesSearch && matchingItemsBySearch.length === 0) {
@@ -658,13 +924,73 @@ function DashboardPage() {
         return [];
       }
 
-      if (expandedSuppliers.length > 0 && !isSupplierOpened && (hasItemFilters || hasSearch)) {
-        return [];
-      }
-
       return [{ ...supplier, visibleItems }];
     });
-  }, [analysisFilters, expandedSuppliers]);
+  }, [analysisFilters, analysisSuppliers]);
+
+  const visibleAnalysisItemCount = useMemo(
+    () => filteredSuppliers.reduce((total, supplier) => total + supplier.visibleItems.length, 0),
+    [filteredSuppliers],
+  );
+
+  const pageStats = useMemo(() => {
+    const items = filteredSuppliers.flatMap((supplier) => supplier.visibleItems);
+
+    return {
+      suppliers: filteredSuppliers.length,
+      items: items.length,
+      critical: items.filter((item) => item.status === 'critical').length,
+      blocked: items.filter((item) => item.blocked > 0).length,
+    };
+  }, [filteredSuppliers]);
+
+  const calculationDate = new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date()).replace(' г.', '');
+
+  const supplyPlanRows = useMemo<SourceReportRow[]>(() =>
+    savedSupplyPlans.flatMap((plan) => {
+      const supplier = analysisSuppliers.find((candidate) => candidate.id === plan.supplierId);
+      const item = supplier?.items.find((candidate) => candidate.code === plan.itemCode);
+
+      if (!supplier || !item) return [];
+
+      const calculated = calculatePlannedStock(item, plan);
+
+      return [{
+        id: `${plan.supplierId}-${plan.itemCode}`,
+        itemCode: item.code,
+        itemName: item.name,
+        supplier: supplier.name,
+        currentStock: formatNumber(item.totalStock),
+        currentDays: formatDays(calculated.currentDays),
+        quantity: formatNumber(plan.quantity),
+        date: plan.date || '—',
+        futureStock: formatNumber(calculated.futureStock),
+        futureDays: formatDays(calculated.futureDays),
+      }];
+    }),
+  [analysisSuppliers, savedSupplyPlans]);
+
+  const groupedFilteredSuppliers = useMemo<PackagingCategoryGroup[]>(() => {
+    return packagingSections
+      .map((section) => {
+        const sectionSuppliers = filteredSuppliers.filter((supplier) =>
+          (section.categories as readonly string[]).includes(supplier.category),
+        );
+
+        return {
+          id: section.id,
+          title: section.title,
+          description: section.description,
+          suppliers: sectionSuppliers,
+          itemCount: sectionSuppliers.reduce((total, supplier) => total + supplier.visibleItems.length, 0),
+        };
+      })
+      .filter((section) => section.suppliers.length > 0);
+  }, [filteredSuppliers]);
 
   const orderedVisibleSupplyColumns = useMemo(
     () =>
@@ -769,7 +1095,9 @@ function DashboardPage() {
     [filteredSupplyRows],
   );
 
-  const hasActiveAnalysisFilters = Boolean(analysisFilters.search.trim() || analysisFilters.advanced.length > 0);
+  useEffect(() => {
+    window.localStorage.setItem('analiz-rum:supply-plans', JSON.stringify(savedSupplyPlans));
+  }, [savedSupplyPlans]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -792,8 +1120,31 @@ function DashboardPage() {
       return;
     }
 
-    setDraftFilters(activeSection === 'supply-report' ? supplyFilters.advanced : analysisFilters.advanced);
+    setDraftFilters(
+      activeSection === 'supply-report'
+        ? supplyFilters.advanced
+        : analysisFilters.advanced.filter((filter) => analysisFilterFieldSet.has(filter.field)),
+    );
   }, [activeSection, analysisFilters.advanced, isFilterPanelOpen, supplyFilters.advanced]);
+
+  useEffect(() => {
+    const hasAnalysisFilter = analysisFilters.advanced.some(
+      (filter) => analysisFilterFieldSet.has(filter.field) && filter.value.trim(),
+    );
+
+    if (!hasAnalysisFilter) {
+      return;
+    }
+
+    setExpandedSuppliers(filteredSuppliers.map((supplier) => supplier.id));
+    setExpandedPackagingSections(
+      packagingSections
+        .filter((section) =>
+          filteredSuppliers.some((supplier) => (section.categories as readonly string[]).includes(supplier.category)),
+        )
+        .map((section) => section.id),
+    );
+  }, [analysisFilters.advanced, filteredSuppliers]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -830,15 +1181,17 @@ function DashboardPage() {
   const visibleFilters = useMemo(() => {
     const filters = activeSection === 'supply-report' ? supplyFilters.advanced : analysisFilters.advanced;
 
-    return filters.filter((filter) => filter.field || filter.operator || filter.value);
+    return filters.filter(
+      (filter) =>
+        (activeSection === 'supply-report' || analysisFilterFieldSet.has(filter.field)) &&
+        (filter.field || filter.operator || filter.value),
+    );
   }, [activeSection, analysisFilters.advanced, supplyFilters.advanced]);
 
   const currentFilterFields =
     activeSection === 'supply-report'
       ? supplyFilterFields
-      : expandedSuppliers.length > 0
-        ? analysisPositionFilterFields
-        : analysisSupplierFilterFields;
+      : analysisFilterFields;
 
   const handleFilterChange = (id: number, field: FilterInputName, value: string) => {
     setDraftFilters((current) =>
@@ -885,7 +1238,12 @@ function DashboardPage() {
   const applyFilters = () => {
     const nextFilters = draftFilters
       .map((filter) => ({ ...filter, operator: 'Содержит' }))
-      .filter((filter) => filter.field || filter.operator || filter.value);
+      .filter(
+        (filter) =>
+          (activeSection === 'supply-report' || analysisFilterFieldSet.has(filter.field)) &&
+          filter.field &&
+          filter.value.trim(),
+      );
 
     if (activeSection === 'supply-report') {
       dispatch(setSupplyAdvancedFilters(nextFilters));
@@ -906,12 +1264,119 @@ function DashboardPage() {
     setIsFilterPanelOpen(false);
   };
 
+  const exportCurrentSection = () => {
+    if (activeSection === 'supply-report') {
+      exportSupplyWorkbook(filteredSupplyRows, orderedVisibleSupplyColumns);
+      return;
+    }
+
+    exportAnalysisWorkbook(groupedFilteredSuppliers);
+  };
+
   const toggleSupplier = (supplierId: string) => {
     setExpandedSuppliers((current) =>
       current.includes(supplierId)
         ? current.filter((expandedSupplierId) => expandedSupplierId !== supplierId)
         : [...current, supplierId],
     );
+  };
+
+  const togglePackagingSection = (sectionId: string) => {
+    setExpandedPackagingSections((current) =>
+      current.includes(sectionId)
+        ? current.filter((expandedSectionId) => expandedSectionId !== sectionId)
+        : [...current, sectionId],
+    );
+  };
+
+  const areAllSuppliersExpanded = analysisSuppliers.every((supplier) => expandedSuppliers.includes(supplier.id));
+
+  const toggleAllSuppliers = () => {
+    setExpandedSuppliers(areAllSuppliersExpanded ? [] : analysisSuppliers.map((supplier) => supplier.id));
+  };
+
+  const openPackagingItem = (item: PackagingItem, supplier: Supplier) => {
+    setSelectedSupplierPlan(null);
+    setSelectedPackagingItem({ item, supplier });
+    setPlanningQuantity(item.plannedDeliveryQty);
+    setPlanningDate(item.deliveryDate);
+  };
+
+  const openSupplierPlan = (supplier: Supplier) => {
+    setSelectedPackagingItem(null);
+    setSupplierPlanRows(Object.fromEntries(supplier.items.map((item) => [
+      item.code,
+      { quantity: item.plannedDeliveryQty, date: item.deliveryDate },
+    ])));
+    setSelectedSupplierPlan(supplier);
+  };
+
+  const updateSupplierPlan = (code: string, field: keyof SupplierPlanRow, value: string) => {
+    setSupplierPlanRows((current) => ({
+      ...current,
+      [code]: {
+        ...(current[code] ?? { quantity: 0, date: '' }),
+        [field]: field === 'quantity' ? Number(value) : value,
+      },
+    }));
+  };
+
+  const saveSupplierPlan = () => {
+    if (!selectedSupplierPlan) return;
+
+    const nextSupplierPlans = selectedSupplierPlan.items.flatMap((item) => {
+      const plan = supplierPlanRows[item.code] ?? { quantity: 0, date: '' };
+
+      return plan.quantity > 0
+        ? [{ supplierId: selectedSupplierPlan.id, itemCode: item.code, ...plan }]
+        : [];
+    });
+
+    setSavedSupplyPlans((current) => [
+      ...current.filter((plan) => plan.supplierId !== selectedSupplierPlan.id),
+      ...nextSupplierPlans,
+    ]);
+    setSelectedSupplierPlan(null);
+    setActiveSection('supply-plan');
+  };
+
+  const saveSingleItemPlan = () => {
+    if (!selectedPackagingItem || planningQuantity <= 0) return;
+
+    const nextPlan: SavedSupplyPlan = {
+      supplierId: selectedPackagingItem.supplier.id,
+      itemCode: selectedPackagingItem.item.code,
+      quantity: planningQuantity,
+      date: planningDate,
+    };
+
+    setSavedSupplyPlans((current) => [
+      ...current.filter((plan) =>
+        plan.supplierId !== nextPlan.supplierId || plan.itemCode !== nextPlan.itemCode,
+      ),
+      nextPlan,
+    ]);
+    setSelectedPackagingItem(null);
+    setActiveSection('supply-plan');
+  };
+
+  const plannedPallets = selectedPackagingItem
+    ? Math.ceil(planningQuantity / Math.max(selectedPackagingItem.item.palletMultiple ?? 1, 1))
+    : 0;
+  const selectedItemPlanCalculation = selectedPackagingItem
+    ? calculatePlannedStock(selectedPackagingItem.item, { quantity: planningQuantity, date: planningDate })
+    : null;
+
+  const sectionTitles: Record<WorkspaceSection, { title: string; description: string }> = {
+    analysis: { title: 'Анализ запасов упаковки', description: 'Поставщики, покрытие в днях и фактический остаток по позициям' },
+    sleeves: { title: 'Анализ запасов обечаек', description: 'Остатки, недельные поставки, форматы и планирование общего заказа' },
+    'supply-plan': { title: 'План поставки', description: 'Сохранённые позиции, текущий остаток и будущий ТЗ' },
+    'workshop-stock': { title: 'Остатки цех', description: 'Исходная выгрузка Power Query по компонентам и производственным планам' },
+    'warehouse-stock': { title: 'Остатки склад', description: 'Партионные складские остатки, качество, блокировка и сроки хранения' },
+    'supply-report': { title: 'Отчёт поставки', description: 'SAP-заказы, остаток поставки, плановые даты и статус отгрузки' },
+    bom: { title: 'Разузловка упаковки', description: 'Состав упаковочных позиций и расход материалов по данным SAP' },
+    'blocked-stock': { title: 'Запас в блоке', description: 'Отдельный контроль заблокированных партий и количества упаковки' },
+    'items-directory': { title: 'Справочник позиций', description: 'Единый перечень упаковки, поставщиков и паллетной кратности' },
   };
 
   const openSection = (section: WorkspaceSection) => {
@@ -940,6 +1405,10 @@ function DashboardPage() {
           </svg>
           <span>Меню</span>
         </button>
+        <div className="dashboard-sidebar__brand" aria-hidden={!isSidebarOpen}>
+          <span>AR</span>
+          <strong>Analiz_RUM</strong>
+        </div>
         <nav className="dashboard-sidebar__nav">
           <button
             className={activeSection === 'analysis' ? 'is-active' : ''}
@@ -949,11 +1418,39 @@ function DashboardPage() {
             Анализ
           </button>
           <button
+            className={activeSection === 'sleeves' ? 'is-active' : ''}
+            type="button"
+            onClick={() => openSection('sleeves')}
+          >
+            Обечайки
+          </button>
+          <button
+            className={activeSection === 'supply-plan' ? 'is-active' : ''}
+            type="button"
+            onClick={() => openSection('supply-plan')}
+          >
+            План поставки
+          </button>
+          <button
+            className={activeSection === 'workshop-stock' ? 'is-active' : ''}
+            type="button"
+            onClick={() => openSection('workshop-stock')}
+          >
+            Остатки цех
+          </button>
+          <button
+            className={activeSection === 'warehouse-stock' ? 'is-active' : ''}
+            type="button"
+            onClick={() => openSection('warehouse-stock')}
+          >
+            Остатки склад
+          </button>
+          <button
             className={activeSection === 'supply-report' ? 'is-active' : ''}
             type="button"
             onClick={() => openSection('supply-report')}
           >
-            Отчет поставки
+            Поставки
           </button>
           <button
             className={activeSection === 'bom' ? 'is-active' : ''}
@@ -961,6 +1458,13 @@ function DashboardPage() {
             onClick={() => openSection('bom')}
           >
             Разузловка
+          </button>
+          <button
+            className={activeSection === 'blocked-stock' ? 'is-active' : ''}
+            type="button"
+            onClick={() => openSection('blocked-stock')}
+          >
+            Запас в блоке
           </button>
           <button
             className={activeSection === 'items-directory' ? 'is-active' : ''}
@@ -981,15 +1485,16 @@ function DashboardPage() {
       <section className="dashboard-workspace">
         <header className="dashboard-header">
           <div>
-            <span className="dashboard-header__label">DELEKTO Workspace</span>
-            <h1>{activeSection === 'supply-report' ? 'Отчет поставки' : 'Анализ запасов упаковки'}</h1>
-            <p>
-              {activeSection === 'supply-report'
-                ? 'SAP-заказы, остаток поставки, плановые даты и статус отгрузки'
-                : 'Поставщики, покрытие в днях и фактический остаток по позициям'}
-            </p>
+            <span className="dashboard-header__label">DELEKTO · УПАКОВКА</span>
+            <h1>{sectionTitles[activeSection].title}</h1>
+            <p>{sectionTitles[activeSection].description}</p>
+            {activeSection === 'analysis' && (
+              <div className="dashboard-header__context">
+                <span>Расчёт на {calculationDate}</span>
+              </div>
+            )}
           </div>
-          <div className="dashboard-header__actions">
+          <div className={`dashboard-header__actions ${activeSection === 'analysis' || activeSection === 'supply-report' ? '' : 'is-hidden'}`}>
             <div className="dashboard-column-tools" ref={columnAreaRef}>
               <button
                 type="button"
@@ -1012,7 +1517,7 @@ function DashboardPage() {
                       onClick={() =>
                         activeSection === 'supply-report'
                           ? dispatch(resetSupplyColumns())
-                          : dispatch(resetAnalysisColumns())
+                                  : dispatch(resetAnalysisColumns())
                       }
                     >
                       Все
@@ -1074,7 +1579,7 @@ function DashboardPage() {
                 </aside>
               )}
             </div>
-            <button type="button" className="dashboard-button dashboard-button--secondary">
+            <button type="button" className="dashboard-button dashboard-button--secondary" onClick={exportCurrentSection}>
               Экспорт
             </button>
             <button type="button" className="dashboard-button dashboard-button--secondary">
@@ -1087,7 +1592,7 @@ function DashboardPage() {
         </header>
 
         {activeSection === 'analysis' ? (
-          <section className="dashboard-summary" aria-label="Сводка по упаковке">
+          <section className="dashboard-summary dashboard-summary--analysis" aria-label="Сводка по упаковке">
             <article className="dashboard-summary__item">
               <span>Поставщиков</span>
               <strong>{pageStats.suppliers}</strong>
@@ -1101,15 +1606,11 @@ function DashboardPage() {
               <strong>{pageStats.critical}</strong>
             </article>
             <article className="dashboard-summary__item">
-              <span>С блоком</span>
+              <span>Позиций в блоке</span>
               <strong>{pageStats.blocked}</strong>
             </article>
-            <article className="dashboard-summary__item">
-              <span>Общий остаток</span>
-              <strong>{formatNumber(pageStats.totalStock)}</strong>
-            </article>
           </section>
-        ) : (
+        ) : activeSection === 'supply-report' ? (
           <section className="dashboard-summary" aria-label="Сводка по поставкам">
             <article className="dashboard-summary__item">
               <span>Заказов</span>
@@ -1132,9 +1633,20 @@ function DashboardPage() {
               <strong>{activeSupplyView}</strong>
             </article>
           </section>
+        ) : null}
+
+        {activeSection === 'analysis' && (
+          <div className="dashboard-viewbar dashboard-viewbar--compact">
+            <div className="dashboard-viewbar__result">
+              <span>{visibleAnalysisItemCount} позиций</span>
+              <button type="button" onClick={toggleAllSuppliers}>
+                {areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'}
+              </button>
+            </div>
+          </div>
         )}
 
-        <div className="dashboard-toolbar">
+        <div className={`dashboard-toolbar ${activeSection === 'analysis' ? 'dashboard-toolbar--analysis' : ''} ${activeSection === 'analysis' || activeSection === 'supply-report' ? '' : 'is-hidden'}`}>
           <label className="dashboard-search">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M10.5 18a7.5 7.5 0 1 1 5.3-12.8 7.5 7.5 0 0 1-5.3 12.8ZM16 16l4 4" />
@@ -1156,7 +1668,7 @@ function DashboardPage() {
               }}
             />
           </label>
-          {activeSection === 'supply-report' && (
+          {activeSection === 'supply-report' ? (
             <div className="dashboard-quick-filters" aria-label="Быстрые фильтры">
               <button
                 type="button"
@@ -1204,10 +1716,10 @@ function DashboardPage() {
                 </button>
               </>
             </div>
-          )}
+          ) : null}
         </div>
 
-        <div className="dashboard-filters" ref={filterAreaRef} aria-label="Фильтры анализа">
+        <div className={`dashboard-filters ${activeSection === 'analysis' || activeSection === 'supply-report' ? '' : 'is-hidden'}`} ref={filterAreaRef} aria-label="Фильтры анализа">
           <button
             className="dashboard-filter-icon"
             type="button"
@@ -1246,8 +1758,8 @@ function DashboardPage() {
                 aria-label="Закрыть фильтры"
                 onClick={() => setIsFilterPanelOpen(false)}
               />
-              <aside className="dashboard-filter-panel" aria-label="Коллектор фильтров">
-                <div className="dashboard-filter-panel__header">
+              <aside className="dashboard-filter-panel draggable-modal" style={filterModalDrag.dragStyle} aria-label="Коллектор фильтров">
+                <div className="dashboard-filter-panel__header draggable-modal__handle" {...filterModalDrag.dragHandleProps}>
                   <h2>Коллектор фильтров</h2>
                   <button
                     className="dashboard-filter-close"
@@ -1330,7 +1842,25 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-workbench">
-          {activeSection === 'supply-report' ? (
+          {activeSection === 'supply-plan' ? (
+            supplyPlanRows.length > 0 ? (
+              <SourceReport
+                caption="План поставки"
+                columns={supplyPlanColumns}
+                rows={supplyPlanRows}
+                onDeleteRow={(row) => setSavedSupplyPlans((current) =>
+                  current.filter((plan) => plan.itemCode !== String(row.itemCode)),
+                )}
+              />
+            ) : (
+              <div className="dashboard-empty-state dashboard-empty-state--plan">
+                <strong>План поставки пока пуст</strong>
+                <span>Откройте раздел «Анализ», нажмите «Начать» у позиции и сохраните план.</span>
+              </div>
+            )
+          ) : activeSection === 'sleeves' ? (
+            <SleeveAnalysis directoryPositions={directoryPositions} />
+          ) : activeSection === 'supply-report' ? (
             <div className="dashboard-report-shell">
               <div className="dashboard-saved-views" aria-label="Сохраненные фильтры">
                 {savedSupplyViews.map((view) => (
@@ -1379,39 +1909,69 @@ function DashboardPage() {
                 </table>
               </div>
             </div>
+          ) : activeSection === 'workshop-stock' ? (
+            <SourceReport caption="Остатки цех" columns={workshopStockColumns} rows={workshopStockRows} />
+          ) : activeSection === 'warehouse-stock' ? (
+            <SourceReport caption="Остатки склад" columns={warehouseStockColumns} rows={warehouseStockRows} />
+          ) : activeSection === 'bom' ? (
+            <SourceReport caption="Разузловка" columns={bomColumns} rows={bomRows} />
+          ) : activeSection === 'blocked-stock' ? (
+            <SourceReport caption="Запас в блоке" columns={blockedStockColumns} rows={blockedStockRows} />
+          ) : activeSection === 'items-directory' ? (
+            <ItemsDirectory initialRows={initialDirectoryRows} onRowsChange={setDirectoryPositions} />
           ) : (
             <div className="dashboard-supplier-shell">
-            <div className="dashboard-supplier-header" role="row">
-              <span>Поставщик</span>
-              <span>Договор</span>
-              <span>Соглашение</span>
-              <span>Позиций</span>
-            </div>
-
-            {filteredSuppliers.map((supplier) => {
-              const isExpanded = hasActiveAnalysisFilters || expandedSuppliers.includes(supplier.id);
-
-              return (
-                <section className="dashboard-supplier-group" key={supplier.id}>
-                  <button
-                    className="dashboard-supplier-row"
-                    type="button"
-                    aria-expanded={isExpanded}
-                    onClick={() => toggleSupplier(supplier.id)}
-                  >
-                    <span className="dashboard-supplier-row__name">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M9 5l7 7-7 7" />
-                      </svg>
-                      <span>
-                        <strong>{supplier.name}</strong>
-                        <small>{supplier.category}</small>
-                      </span>
+            {groupedFilteredSuppliers.map((categoryGroup) => (
+              <section className="dashboard-category-group" key={categoryGroup.id}>
+                <button
+                  className="dashboard-category-header"
+                  type="button"
+                  aria-expanded={expandedPackagingSections.includes(categoryGroup.id)}
+                  onClick={() => togglePackagingSection(categoryGroup.id)}
+                >
+                  <span className="dashboard-category-header__name">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+                    <span>
+                      <strong>{categoryGroup.title}</strong>
+                      <small>{categoryGroup.description}</small>
                     </span>
-                    <span>{supplier.contract}</span>
-                    <span>{supplier.agreement}</span>
-                    <span>{supplier.visibleItems.length}</span>
-                  </button>
+                  </span>
+                  <span className="dashboard-category-header__meta">
+                    <span>Количество поставщиков: {categoryGroup.suppliers.length}</span>
+                    <strong>Количество позиций: {categoryGroup.itemCount}</strong>
+                  </span>
+                </button>
+                {expandedPackagingSections.includes(categoryGroup.id) && (
+                  <div className="dashboard-category-suppliers">
+                    {categoryGroup.suppliers.map((supplier) => {
+                      const isExpanded = expandedSuppliers.includes(supplier.id);
+
+                      return (
+                      <section className="dashboard-supplier-group" key={supplier.id}>
+                      <button
+                      className="dashboard-supplier-row"
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleSupplier(supplier.id)}
+                    >
+                      <span className="dashboard-supplier-row__name">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span className="dashboard-supplier-summary-field">
+                          <small>Поставщик</small>
+                          <strong>{supplier.name}</strong>
+                        </span>
+                      </span>
+                      <span className="dashboard-supplier-summary-field">
+                        <small>Соглашение</small>
+                        <strong>{supplier.agreement || '—'}</strong>
+                      </span>
+                      <span className="dashboard-supplier-summary-field dashboard-supplier-summary-field--positions">
+                        <small>Позиции</small>
+                        <strong>{supplier.visibleItems.length}</strong>
+                      </span>
+                    </button>
 
                   {isExpanded && (
                     <div className="dashboard-items-table">
@@ -1420,21 +1980,42 @@ function DashboardPage() {
                           {visibleAnalysisColumnsConfig.map((column) => (
                             <col key={column.key} style={{ width: `${column.width}px` }} />
                           ))}
+                          <col style={{ width: '110px' }} />
                         </colgroup>
                         <thead>
                           <tr>
                             {visibleAnalysisColumnsConfig.map((column) => (
-                              <th className={column.align ? `is-${column.align}` : undefined} key={column.key}>
+                              <th
+                                className={[
+                                  column.align ? `is-${column.align}` : '',
+                                  `is-group-${getAnalysisColumnGroup(column.key)}`,
+                                  column.key === 'code' || column.key === 'name' ? `is-sticky-${column.key}` : '',
+                                ].filter(Boolean).join(' ')}
+                                key={column.key}
+                              >
                                 {column.label}
                               </th>
                             ))}
+                            <th className="is-group-result dashboard-items-table__plan-header">
+                              Планировать поставку
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {supplier.visibleItems.map((item) => (
-                              <tr key={item.code}>
+                              <tr
+                                className={selectedPackagingItem?.item.code === item.code ? 'is-selected' : ''}
+                                key={item.code}
+                                onClick={() => openPackagingItem(item, supplier)}
+                              >
                                 {visibleAnalysisColumnsConfig.map((column) => (
-                                  <td className={column.align ? `is-${column.align}` : undefined} key={column.key}>
+                                  <td
+                                    className={[
+                                      column.align ? `is-${column.align}` : '',
+                                      column.key === 'code' || column.key === 'name' ? `is-sticky-${column.key}` : '',
+                                    ].filter(Boolean).join(' ')}
+                                    key={column.key}
+                                  >
                                     {column.key === 'plannedDeliveryQty' ? (
                                       <input
                                         aria-label={`Количество поставки ${item.code}`}
@@ -1459,19 +2040,187 @@ function DashboardPage() {
                                     )}
                                   </td>
                                 ))}
+                                <td className="dashboard-items-table__plan-cell">
+                                  <button
+                                    className="dashboard-item-plan-button"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openSupplierPlan(supplier);
+                                    }}
+                                  >
+                                    Начать
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                         </tbody>
                       </table>
                     </div>
                   )}
-                </section>
-              );
-            })}
+                  </section>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            ))}
+            {filteredSuppliers.length === 0 && (
+              <div className="dashboard-empty-state">
+                <strong>По выбранным условиям ничего не найдено</strong>
+                <span>Измените строку поиска или условия фильтра.</span>
+              </div>
+            )}
           </div>
           )}
         </div>
       </section>
+
+      {selectedSupplierPlan && (
+        <>
+          <button
+            className="dashboard-details-backdrop"
+            type="button"
+            aria-label="Закрыть планирование поставщика"
+            onClick={() => setSelectedSupplierPlan(null)}
+          />
+          <aside className="supplier-planning draggable-modal" style={supplierPlanModalDrag.dragStyle} aria-label="Планирование поставщика">
+            <header className="supplier-planning__header draggable-modal__handle" {...supplierPlanModalDrag.dragHandleProps}>
+              <div>
+                <span>Групповое планирование</span>
+                <h2>{selectedSupplierPlan.name}</h2>
+                <p>{selectedSupplierPlan.contract} · {selectedSupplierPlan.items.length} позиций</p>
+              </div>
+              <button type="button" aria-label="Закрыть" onClick={() => setSelectedSupplierPlan(null)}>×</button>
+            </header>
+            <div className="supplier-planning__body">
+              <div className="supplier-planning__notice">
+                Введите количество и дату по каждой PLU. Текущий и будущий ТЗ считаются отдельно для каждой позиции.
+              </div>
+              <div className="supplier-planning__table">
+                <table>
+                  <thead><tr><th>PLU / позиция</th><th>Текущий остаток</th><th>Остаток по заказам</th><th>Текущий ТЗ</th><th>Количество</th><th>Дата поставки</th><th>Будущий остаток</th><th>Будущий ТЗ</th></tr></thead>
+                  <tbody>{selectedSupplierPlan.items.map((item) => {
+                    const plan = supplierPlanRows[item.code] ?? { quantity: 0, date: '' };
+                    const calculated = calculatePlannedStock(item, plan);
+                    return (
+                      <tr key={item.code}>
+                        <td><strong>{item.code}</strong><span>{item.name}</span></td>
+                        <td className="is-right">{formatNumber(item.totalStock)}</td>
+                        <td className="is-right">{formatNumber(item.supplyRemainder)}</td>
+                        <td className="is-right">{formatDays(calculated.currentDays)}</td>
+                        <td><input type="number" min="0" step={item.palletMultiple ?? 1} value={plan.quantity} onChange={(event) => updateSupplierPlan(item.code, 'quantity', event.target.value)} /></td>
+                        <td><input type="text" placeholder="дд.мм.гггг" value={plan.date} onChange={(event) => updateSupplierPlan(item.code, 'date', event.target.value)} /></td>
+                        <td className="is-right">{formatNumber(calculated.futureStock)}</td>
+                        <td className="is-right"><strong>{formatDays(calculated.futureDays)}</strong></td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
+              <footer className="supplier-planning__footer">
+                <span>Изменено позиций: {Object.values(supplierPlanRows).filter((row) => row.quantity > 0).length}</span>
+                <div>
+                  <button type="button" onClick={() => setSelectedSupplierPlan(null)}>Отменить</button>
+                  <button className="dashboard-button dashboard-button--primary" type="button" onClick={saveSupplierPlan}>Сохранить план поставщика</button>
+                </div>
+              </footer>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {selectedPackagingItem && (
+        <>
+          <button
+            className="dashboard-details-backdrop"
+            type="button"
+            aria-label="Закрыть карточку позиции"
+            onClick={() => setSelectedPackagingItem(null)}
+          />
+          <aside className="dashboard-details draggable-modal" style={itemDetailsModalDrag.dragStyle} aria-label="Карточка позиции">
+            <div className="dashboard-details__header draggable-modal__handle" {...itemDetailsModalDrag.dragHandleProps}>
+              <div>
+                <span>Карточка позиции</span>
+                <strong>{selectedPackagingItem.item.code}</strong>
+              </div>
+              <button type="button" aria-label="Закрыть" onClick={() => setSelectedPackagingItem(null)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+              </button>
+            </div>
+            <div className="dashboard-details__body">
+              <div className="dashboard-details__title">
+                <h2>{selectedPackagingItem.item.name}</h2>
+                <span className={`dashboard-status dashboard-status--${selectedPackagingItem.item.status}`}>
+                  {statusLabels[selectedPackagingItem.item.status]}
+                </span>
+              </div>
+              <dl className="dashboard-details__supplier">
+                <div><dt>Поставщик</dt><dd>{selectedPackagingItem.supplier.name}</dd></div>
+                <div><dt>Категория</dt><dd>{selectedPackagingItem.supplier.category}</dd></div>
+                <div><dt>Договор</dt><dd>{selectedPackagingItem.supplier.contract}</dd></div>
+              </dl>
+              <section className="dashboard-details__metrics">
+                <article><span>Прогноз / день</span><strong>{formatNumber(selectedPackagingItem.item.dailyForecast)}</strong></article>
+                <article><span>ТЗ на складе</span><strong>{formatDays(selectedPackagingItem.item.stockDays)}</strong></article>
+                <article><span>Общий остаток</span><strong>{formatNumber(selectedPackagingItem.item.totalStock)}</strong></article>
+                <article><span>Остаток поставки</span><strong>{formatNumber(selectedPackagingItem.item.supplyRemainder)}</strong></article>
+              </section>
+              {selectedPackagingItem.item.comment && (
+                <section className="dashboard-details__comment">
+                  <span>Комментарий</span>
+                  <p>{selectedPackagingItem.item.comment}</p>
+                </section>
+              )}
+              <section className="dashboard-planning-form">
+                <div className="dashboard-planning-form__heading">
+                  <div>
+                    <span>Планирование заказа</span>
+                    <strong>Кратность паллеты: {formatNumber(selectedPackagingItem.item.palletMultiple ?? 0)}</strong>
+                  </div>
+                  <span>{plannedPallets} пал.</span>
+                </div>
+                <label>
+                  <span>Количество к заказу</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step={selectedPackagingItem.item.palletMultiple ?? 1}
+                    value={planningQuantity}
+                    onChange={(event) => setPlanningQuantity(Math.max(0, Number(event.target.value)))}
+                  />
+                </label>
+                <div className="dashboard-planning-form__steps">
+                  <button
+                    type="button"
+                    onClick={() => setPlanningQuantity((current) => Math.max(0, current - (selectedPackagingItem.item.palletMultiple ?? 1)))}
+                  >
+                    − 1 паллета
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanningQuantity((current) => current + (selectedPackagingItem.item.palletMultiple ?? 1))}
+                  >
+                    + 1 паллета
+                  </button>
+                </div>
+                <label>
+                  <span>Дата поставки</span>
+                  <input type="text" placeholder="дд.мм.гггг" value={planningDate} onChange={(event) => setPlanningDate(event.target.value)} />
+                </label>
+                <div className="dashboard-planning-form__result">
+                  <div><span>Текущий ТЗ</span><strong>{formatDays(selectedItemPlanCalculation?.currentDays ?? 0)}</strong></div>
+                  <div><span>Будущий остаток</span><strong>{formatNumber(selectedItemPlanCalculation?.futureStock ?? 0)}</strong></div>
+                  <div><span>Будущий ТЗ</span><strong>{formatDays(selectedItemPlanCalculation?.futureDays ?? 0)}</strong></div>
+                </div>
+              </section>
+              <button className="dashboard-button dashboard-button--primary dashboard-details__action" type="button" onClick={saveSingleItemPlan}>
+                Сохранить план поставки
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
     </main>
   );
 }
