@@ -25,6 +25,7 @@ import { ItemsDirectory, type DirectoryPosition } from './ItemsDirectory';
 import { SleeveAnalysis } from './SleeveAnalysis';
 import { useDraggableModal } from '../../components/ui/useDraggableModal';
 import { exportAnalysisWorkbook, exportSupplyWorkbook } from './exportWorkbook';
+import type { DataState } from '../../types/desktop';
 import './DashboardPage.css';
 
 type FilterRow = {
@@ -466,6 +467,7 @@ const analysisColumns: AnalysisColumn[] = [
   { key: 'warehouse', label: 'Остаток склад', width: 128, align: 'right' },
   { key: 'production', label: 'Остаток производства', width: 148, align: 'right' },
   { key: 'totalStock', label: 'Общий остаток', width: 122, align: 'right' },
+  { key: 'supplyRemainder', label: 'Остаток поставки', width: 135, align: 'right' },
   { key: 'status', label: 'Статус', width: 100, align: 'center' },
 ];
 
@@ -759,6 +761,10 @@ function DashboardPage() {
   const [savedSupplyPlans, setSavedSupplyPlans] = useState<SavedSupplyPlan[]>(loadSavedSupplyPlans);
   const [planningQuantity, setPlanningQuantity] = useState(0);
   const [planningDate, setPlanningDate] = useState('');
+  const [dataState, setDataState] = useState<DataState | null>(null);
+  const [dataMessage, setDataMessage] = useState('');
+  const [isUpdatingData, setIsUpdatingData] = useState(false);
+  const [updateDate, setUpdateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(() => {
     try {
       const stored = localStorage.getItem('analiz-rum:items-directory');
@@ -774,10 +780,35 @@ function DashboardPage() {
   const filterAreaRef = useRef<HTMLDivElement>(null);
   const columnAreaRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    window.analizRum?.getDataState().then(setDataState).catch((error: unknown) =>
+      setDataMessage(error instanceof Error ? error.message : 'Не удалось открыть базу данных'));
+  }, []);
+
+  const updateDatabase = async () => {
+    if (!window.analizRum) { setDataMessage('Обновление SQLite доступно в desktop-версии приложения.'); return; }
+    setIsUpdatingData(true); setDataMessage('Проверяю SAP-файлы и обновляю базу…');
+    try {
+      const next = await window.analizRum.updateData(updateDate); setDataState(next);
+      setDataMessage(next.imported?.length ? `Обновление за ${next.selectedDate} сохранено` : `Показаны данные за ${next.selectedDate}`);
+    } catch (error) { setDataMessage(error instanceof Error ? error.message : 'Ошибка обновления данных'); }
+    finally { setIsUpdatingData(false); }
+  };
+
   const analysisSuppliers = useMemo<Supplier[]>(() => {
+    const stockByMaterial = new Map((dataState?.stockTotals ?? []).map((row) => [String(row.materialNumber).replace(/^0+(?=\d)/, ''), row]));
+    const supplyByMaterial = new Map((dataState?.supplyTotals ?? []).map((row) => [String(row.materialNumber).replace(/^0+(?=\d)/, ''), row.supplyRemainder]));
     const nextSuppliers = suppliers.map((supplier) => ({
       ...supplier,
-      items: [...supplier.items],
+      items: supplier.items.map((item) => {
+        const key = item.code.replace(/^0+(?=\d)/, '');
+        const stock = stockByMaterial.get(key);
+        if (!stock && !supplyByMaterial.has(key)) return item;
+        const warehouse = Number(stock?.warehouse ?? 0);
+        const production = Number(stock?.production ?? 0);
+        const totalStock = warehouse + production;
+        return { ...item, warehouse, production, blocked: Number(stock?.blocked ?? 0), totalStock, supplyRemainder: Number(supplyByMaterial.get(key) ?? 0), stockDays: item.dailyForecast > 0 ? Math.round(warehouse / item.dailyForecast) : null, stockProductionDays: item.dailyForecast > 0 ? Math.round(totalStock / item.dailyForecast) : null };
+      }),
     }));
 
     directoryPositions.filter((row) => row.showInAnalysis).forEach((row) => {
@@ -825,7 +856,7 @@ function DashboardPage() {
     });
 
     return nextSuppliers;
-  }, [directoryPositions]);
+  }, [dataState, directoryPositions]);
 
   const visibleAnalysisColumnsConfig = useMemo(
     () =>
@@ -1582,14 +1613,11 @@ function DashboardPage() {
             <button type="button" className="dashboard-button dashboard-button--secondary" onClick={exportCurrentSection}>
               Экспорт
             </button>
-            <button type="button" className="dashboard-button dashboard-button--secondary">
-              Пересчитать
-            </button>
-            <button type="button" className="dashboard-button dashboard-button--primary">
-              Импорт Excel
-            </button>
+            {activeSection === 'analysis' && <input className="dashboard-update-date" type="date" value={updateDate} onChange={(event) => setUpdateDate(event.target.value)} aria-label="Дата обновления данных" />}
+            {activeSection === 'analysis' && <button type="button" className="dashboard-button dashboard-button--primary" disabled={isUpdatingData} onClick={updateDatabase}>{isUpdatingData ? 'Обновление…' : 'Обновить данные'}</button>}
           </div>
         </header>
+        {activeSection === 'analysis' && dataMessage && <div className="dashboard-update-message">{dataMessage}</div>}
 
         {activeSection === 'analysis' ? (
           <section className="dashboard-summary dashboard-summary--analysis" aria-label="Сводка по упаковке">
