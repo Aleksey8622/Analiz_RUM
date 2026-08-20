@@ -32,7 +32,6 @@ type ItemsDirectoryProps = {
   onRowsChange?: (rows: DirectoryPosition[]) => void;
 };
 
-const STORAGE_KEY = 'analiz-rum:items-directory';
 const SLEEVE_FORMATS_KEY = 'analiz-rum:sleeve-formats';
 const SLEEVE_RUNS_KEY = 'analiz-rum:sleeve-print-runs';
 const sleeveRunKey = (supplier: string, format: string) => `${supplier.trim()}::${format.trim()}`;
@@ -59,13 +58,7 @@ const detectCategory = (name: string) =>
   categoryRules.find(([pattern]) => pattern.test(name))?.[1] ?? 'Прочее';
 
 const loadRows = (initialRows: DirectoryPosition[]) => {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const source = stored ? JSON.parse(stored) as DirectoryPosition[] : initialRows;
-    return source.map((row) => ({ ...row, category: normalizeCategory(row.category) }));
-  } catch {
-    return initialRows;
-  }
+  return initialRows.map((row) => ({ ...row, category: normalizeCategory(row.category) }));
 };
 
 const emptySupplier: SupplierProfile = {
@@ -168,7 +161,6 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
 
   const persistRows = (nextRows: DirectoryPosition[]) => {
     setRows(nextRows);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows));
     onRowsChange?.(nextRows);
   };
 

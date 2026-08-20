@@ -125,232 +125,7 @@ const packagingSections = [
   },
 ] as const;
 
-const suppliers: Supplier[] = [
-  {
-    id: 'milk-pack',
-    name: 'МолПак Сервис',
-    contract: 'Д-4421',
-    agreement: 'СГ-104',
-    category: 'Пленка',
-    items: [
-      {
-        code: 'PK-100245',
-        name: 'Пленка термоусадочная 40 мкм',
-        comment: 'Минимум 2 паллеты, основной поставщик',
-        palletMultiple: 15000,
-        dailyForecast: 4260,
-        stockDays: 2.8,
-        stockProductionDays: 5.6,
-        blocked: 0,
-        warehouse: 100000,
-        production: 20000,
-        totalStock: 120000,
-        supplyRemainder: 85000,
-        plannedDeliveryQty: 180000,
-        deliveryDate: '28.05.2026',
-        stockDaysOnDelivery: 1.1,
-        futureStockDays: 43.4,
-        status: 'critical',
-      },
-      {
-        code: 'PK-100318',
-        name: 'Пленка групповая прозрачная 60 мкм',
-        comment: 'Проверить блок перед размещением',
-        palletMultiple: 12000,
-        dailyForecast: 8600,
-        stockDays: 6.4,
-        stockProductionDays: 9.2,
-        blocked: 8000,
-        warehouse: 62000,
-        production: 17000,
-        totalStock: 79000,
-        supplyRemainder: 50000,
-        plannedDeliveryQty: 120000,
-        deliveryDate: '30.05.2026',
-        stockDaysOnDelivery: 3.9,
-        futureStockDays: 17.8,
-        status: 'blocked',
-      },
-      {
-        code: 'PK-100602',
-        name: 'Пленка паллетная машинная',
-        comment: 'Стандартная кратность поставки',
-        palletMultiple: 10000,
-        dailyForecast: 10300,
-        stockDays: 11.5,
-        stockProductionDays: 16.8,
-        blocked: 0,
-        warehouse: 145000,
-        production: 28000,
-        totalStock: 173000,
-        supplyRemainder: 0,
-        plannedDeliveryQty: 0,
-        deliveryDate: '',
-        stockDaysOnDelivery: null,
-        futureStockDays: null,
-        status: 'normal',
-      },
-    ],
-  },
-  {
-    id: 'gofro-line',
-    name: 'ГофроЛайн Север',
-    contract: 'Д-3987',
-    agreement: 'СГ-087',
-    category: 'Гофра',
-    items: [
-      {
-        code: 'GF-220014',
-        name: 'Гофролист бурый 1200x800',
-        comment: 'Заказ кратно одной машине',
-        palletMultiple: 18000,
-        dailyForecast: 7200,
-        stockDays: 4.1,
-        stockProductionDays: 7.3,
-        blocked: 1200,
-        warehouse: 45000,
-        production: 8000,
-        totalStock: 53000,
-        supplyRemainder: 44000,
-        plannedDeliveryQty: 90000,
-        deliveryDate: '24.05.2026',
-        stockDaysOnDelivery: 2.4,
-        futureStockDays: 14.9,
-        status: 'low',
-      },
-      {
-        code: 'GF-220077',
-        name: 'Прокладка гофрокартонная 3 слоя',
-        palletMultiple: 15000,
-        dailyForecast: 7550,
-        stockDays: 8.9,
-        stockProductionDays: 13.1,
-        blocked: 0,
-        warehouse: 88000,
-        production: 11000,
-        totalStock: 99000,
-        supplyRemainder: 0,
-        plannedDeliveryQty: 0,
-        deliveryDate: '',
-        stockDaysOnDelivery: null,
-        futureStockDays: null,
-        status: 'normal',
-      },
-    ],
-  },
-  {
-    id: 'box-format',
-    name: 'Формат Короб',
-    contract: 'Д-4512',
-    agreement: 'СГ-116',
-    category: 'Короба',
-    items: [
-      {
-        code: 'BX-340071',
-        name: 'Короб транспортный 12 бутылок',
-        comment: 'Критичная позиция',
-        palletMultiple: 20000,
-        dailyForecast: 7050,
-        stockDays: 1.6,
-        stockProductionDays: 3.4,
-        blocked: 0,
-        warehouse: 18000,
-        production: 6000,
-        totalStock: 24000,
-        supplyRemainder: 30000,
-        plannedDeliveryQty: 160000,
-        deliveryDate: '23.05.2026',
-        stockDaysOnDelivery: 0.2,
-        futureStockDays: 22.9,
-        status: 'critical',
-      },
-      {
-        code: 'BX-340144',
-        name: 'Короб шоу-бокс молочная линейка',
-        comment: 'Нет утверждённого прогноза',
-        palletMultiple: 8000,
-        dailyForecast: 2400,
-        stockDays: null,
-        stockProductionDays: 4.8,
-        blocked: 0,
-        warehouse: 9000,
-        production: 2500,
-        totalStock: 11500,
-        supplyRemainder: 12000,
-        plannedDeliveryQty: 40000,
-        deliveryDate: '27.05.2026',
-        stockDaysOnDelivery: null,
-        futureStockDays: 21.5,
-        status: 'check',
-      },
-      {
-        code: 'BX-340188',
-        name: 'Короб архивный для промонаборов',
-        comment: 'Позиция временно заблокирована',
-        palletMultiple: 10000,
-        dailyForecast: 4450,
-        stockDays: 7.2,
-        stockProductionDays: 10.5,
-        blocked: 4000,
-        warehouse: 32000,
-        production: 0,
-        totalStock: 32000,
-        supplyRemainder: 0,
-        plannedDeliveryQty: 0,
-        deliveryDate: '',
-        stockDaysOnDelivery: null,
-        futureStockDays: null,
-        status: 'blocked',
-      },
-    ],
-  },
-  {
-    id: 'lotok-pro',
-    name: 'ЛотокПро',
-    contract: 'Д-4105',
-    agreement: 'СГ-092',
-    category: 'Лотки',
-    items: [
-      {
-        code: 'LT-510022',
-        name: 'Лоток картонный 6 ячеек',
-        palletMultiple: 12000,
-        dailyForecast: 4650,
-        stockDays: 9.8,
-        stockProductionDays: 14.4,
-        blocked: 0,
-        warehouse: 54000,
-        production: 13000,
-        totalStock: 67000,
-        supplyRemainder: 0,
-        plannedDeliveryQty: 0,
-        deliveryDate: '',
-        stockDaysOnDelivery: null,
-        futureStockDays: null,
-        status: 'normal',
-      },
-      {
-        code: 'LT-510039',
-        name: 'Лоток усиленный под стакан',
-        comment: 'Альтернативный поставщик согласован',
-        palletMultiple: 15000,
-        dailyForecast: 5350,
-        stockDays: 5.1,
-        stockProductionDays: 6.7,
-        blocked: 0,
-        warehouse: 27000,
-        production: 9000,
-        totalStock: 36000,
-        supplyRemainder: 28000,
-        plannedDeliveryQty: 75000,
-        deliveryDate: '29.05.2026',
-        stockDaysOnDelivery: 2.1,
-        futureStockDays: 16.1,
-        status: 'low',
-      },
-    ],
-  },
-];
+const suppliers: Supplier[] = [];
 
 const analysisFilterFields = ['Код позиции', 'Название позиции', 'Поставщик'];
 const analysisFilterFieldSet = new Set(analysisFilterFields);
@@ -534,108 +309,7 @@ const supplyColumns: SupplyColumn[] = [
   { key: 'unit', label: 'Единица измерения', width: 130, align: 'center' },
 ];
 
-const supplyRows: SupplyReportRow[] = [
-  {
-    id: 's-001',
-    weekOrDebt: 'долг',
-    supplyRemainder: 0,
-    supplierCode: 'DEMO-001',
-    supplierName: 'ООО "ПакТест"',
-    orderCreatedAt: '05.01.2026',
-    plannedDeliveryAt: '19.01.2026',
-    deliveredAt: '18.01.2026',
-    orderNumber: 'DEMO-ORDER-001',
-    itemCode: 'DEMO-TRAY-01',
-    itemName: 'Демо-лоток пищевой прозрачный',
-    orderedQty: 12000,
-    deliveredQty: 12000,
-    orderType: 'ZFKR',
-    deleted: '',
-    returnFlag: '',
-    orderStatus: 'Размещен',
-    unit: 'ШТ',
-  },
-  {
-    id: 's-002',
-    weekOrDebt: 'долг',
-    supplyRemainder: 0,
-    supplierCode: 'DEMO-001',
-    supplierName: 'ООО "ПакТест"',
-    orderCreatedAt: '02.02.2026',
-    plannedDeliveryAt: '16.02.2026',
-    deliveredAt: '20.02.2026',
-    orderNumber: 'DEMO-ORDER-002',
-    itemCode: 'DEMO-CUP-02',
-    itemName: 'Демо-контейнер с крышкой 100 мл',
-    orderedQty: 24000,
-    deliveredQty: 24000,
-    orderType: 'ZFKR',
-    deleted: '',
-    returnFlag: '',
-    orderStatus: 'Размещен',
-    unit: 'ШТ',
-  },
-  {
-    id: 's-003',
-    weekOrDebt: 'долг',
-    supplyRemainder: 6000,
-    supplierCode: 'DEMO-001',
-    supplierName: 'ООО "ПакТест"',
-    orderCreatedAt: '10.03.2026',
-    plannedDeliveryAt: '24.03.2026',
-    deliveredAt: '30.03.2026',
-    orderNumber: 'DEMO-ORDER-003',
-    itemCode: 'DEMO-TRAY-03',
-    itemName: 'Демо-лоток бумажный усиленный',
-    orderedQty: 36000,
-    deliveredQty: 30000,
-    orderType: 'ZFKR',
-    deleted: '',
-    returnFlag: '',
-    orderStatus: 'Размещен',
-    unit: 'ШТ',
-  },
-  {
-    id: 's-004',
-    weekOrDebt: '21 неделя',
-    supplyRemainder: 0,
-    supplierCode: '100452',
-    supplierName: 'МолПак Сервис',
-    orderCreatedAt: '10.05.2026',
-    plannedDeliveryAt: '20.05.2026',
-    deliveredAt: '19.05.2026',
-    orderNumber: '4500127908',
-    itemCode: 'PK-100602',
-    itemName: 'Пленка паллетная машинная',
-    orderedQty: 140000,
-    deliveredQty: 140000,
-    orderType: 'ZFKR',
-    deleted: 'Нет',
-    returnFlag: 'Нет',
-    orderStatus: 'Закрыт',
-    unit: 'шт',
-  },
-  {
-    id: 's-005',
-    weekOrDebt: '23 неделя',
-    supplyRemainder: 28000,
-    supplierCode: '101204',
-    supplierName: 'ЛотокПро',
-    orderCreatedAt: '19.05.2026',
-    plannedDeliveryAt: '03.06.2026',
-    deliveredAt: '',
-    orderNumber: '4500129182',
-    itemCode: 'LT-510039',
-    itemName: 'Лоток усиленный под стакан',
-    orderedQty: 75000,
-    deliveredQty: 47000,
-    orderType: 'ZFKR',
-    deleted: 'Нет',
-    returnFlag: 'Нет',
-    orderStatus: 'Открыт',
-    unit: 'шт',
-  },
-];
+const supplyRows: SupplyReportRow[] = [];
 
 const workshopStockColumns: SourceReportColumn[] = [
   { key: 'materialNumber', label: 'Номер материала', width: 145 },
@@ -652,14 +326,7 @@ const workshopStockColumns: SourceReportColumn[] = [
   { key: 'lastMovement', label: 'Последнее ПМ', width: 125 },
 ];
 
-const workshopStockRows: SourceReportRow[] = [
-  { id: 'ws-1', materialNumber: '152', plant: 'FK01', batch: '0000265174', warehouse: 'F013', unit: 'КГ', freeStock: '136,589', qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '18.06.2026', shelfLife: '46556', lastMovement: '08.07.2026' },
-  { id: 'ws-2', materialNumber: '152', plant: 'FK01', batch: '0000265394', warehouse: 'F013', unit: 'КГ', freeStock: 500, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '24.06.2026', shelfLife: '46562', lastMovement: '10.07.2026' },
-  { id: 'ws-3', materialNumber: '2745', plant: 'FK01', batch: '0000266119', warehouse: 'F013', unit: 'КГ', freeStock: 925, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '11.08.2025', shelfLife: '46610', lastMovement: '15.07.2026' },
-  { id: 'ws-4', materialNumber: '4920', plant: 'FK01', batch: '0000265578', warehouse: 'F013', unit: 'КГ', freeStock: 700, qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '10.03.2026', shelfLife: '47552', lastMovement: '11.07.2026' },
-  { id: 'ws-5', materialNumber: '6788', plant: 'FK01', batch: '0000264887', warehouse: 'F013', unit: 'ШТ', freeStock: '320,105', qualityStock: 0, blocked: 0, materialType: 'ZFOD', madeAt: '20.06.2026', shelfLife: '46923', lastMovement: '06.07.2026' },
-  { id: 'ws-6', materialNumber: '82117', plant: 'FK01', batch: '1000125748', warehouse: 'B011', unit: 'КГ', freeStock: 0, qualityStock: '168,52', blocked: 0, materialType: 'ZFRE', madeAt: '02.07.2026', shelfLife: '46385', lastMovement: '14.07.2026' },
-];
+const workshopStockRows: SourceReportRow[] = [];
 
 const warehouseStockColumns: SourceReportColumn[] = [
   { key: 'restrictedBatch', label: 'Партия ОграничИспольз', width: 190 },
@@ -682,12 +349,7 @@ const warehouseStockColumns: SourceReportColumn[] = [
   { key: 'resource', label: 'Ресурс', width: 120 },
 ];
 
-const warehouseStockRows: SourceReportRow[] = [
-  { id: 'wh-1', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045770', product: '4419856', consolidationGroup: '', productDescription: 'ТЕНДЕР Крев.ван.б/г оч.б/пиц.тр.зам.1кг', quantity: 360, baseUnit: 'КГ', movementDate: '20.07.2026', shelfLife: '46722', batch: '1000126066', stockType: 'Q3', movementTime: '0,510520833', topHandlingUnit: '1100903497', document: '3773637', parentHandlingUnit: '1100903497', resource: '' },
-  { id: 'wh-2', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045791', product: '419856', consolidationGroup: '', productDescription: 'ТЕНДЕР Крев.ван.б/г оч.б/пиц.тр.зам.1кг', quantity: 360, baseUnit: 'КГ', movementDate: '20.07.2026', shelfLife: '46722', batch: '1000126066', stockType: 'Q3', movementTime: '0,51056713', topHandlingUnit: '1100903498', document: '3773637', parentHandlingUnit: '1100903498', resource: '' },
-  { id: 'wh-3', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045994', product: '4179931', consolidationGroup: '', productDescription: 'ТЕНДЕР Рис пропаренный 1кг', quantity: 500, baseUnit: 'КГ', movementDate: '21.07.2026', shelfLife: '46883', batch: '0000266751', stockType: 'Q3', movementTime: '0,354305556', topHandlingUnit: '1100903893', document: '3775115', parentHandlingUnit: '1100903893', resource: '' },
-  { id: 'wh-4', restrictedBatch: '', warehouseType: 'A101', storageBin: 'A11.01', handlingUnit: '1301045995', product: '4393071', consolidationGroup: '', productDescription: 'Крупа рисовая шлифованная 1кг', quantity: 500, baseUnit: 'КГ', movementDate: '21.07.2026', shelfLife: '46905', batch: '0000266752', stockType: 'Q3', movementTime: '0,354328704', topHandlingUnit: '1100903894', document: '3775115', parentHandlingUnit: '1100903894', resource: '' },
-];
+const warehouseStockRows: SourceReportRow[] = [];
 
 const bomColumns: SourceReportColumn[] = [
   { key: 'level', label: 'Уровень разузловки', width: 155 },
@@ -706,37 +368,13 @@ const bomColumns: SourceReportColumn[] = [
   { key: 'baseUnit', label: 'БЕИ', width: 80 },
 ];
 
-const bomRows: SourceReportRow[] = [
-  { id: 'bom-1', level: 0, position: '', materialType: 'ZFRT', componentNumber: '3681003', materialText: 'ФК Каша молочная рисовая 250г', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: 'X', componentQty: 12147, baseUnit: 'ШТ' },
-  { id: 'bom-2', level: 1, position: '0050', materialType: 'ZHBE', componentNumber: '80396576', materialText: 'Лоток РР 115*57 прозрачный 350 мл', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: '', componentQty: 12147, baseUnit: 'ШТ' },
-  { id: 'bom-3', level: 1, position: '0060', materialType: 'ZHBE', componentNumber: '80371309', materialText: 'Пленка ПЭТ/ПЭ 420мм 42 мкм (peel без AF)', phantomNode: '', alternativePosition: '', rankedList: 0, alternativeGroup: '', mainPlu: '', materialText1: '', node: '', componentQty: '21,865', baseUnit: 'КГ' },
-  { id: 'bom-4', level: 3, position: '0010', materialType: 'ZFOD', componentNumber: '4920', materialText: 'ПР-ВО Сахар-песок весовой 1кг', phantomNode: 'X', alternativePosition: '', rankedList: 1, alternativeGroup: 1, mainPlu: '4920', materialText1: 'ПР-ВО Сахар-песок весовой 1кг', node: '', componentQty: '105,924', baseUnit: 'КГ' },
-  { id: 'bom-5', level: 3, position: '0020', materialType: 'ZFOD', componentNumber: '3230973', materialText: 'ТЕНДЕР Сахар-песок/Сахар белый 5кг', phantomNode: 'X', alternativePosition: '', rankedList: 2, alternativeGroup: 1, mainPlu: '4920', materialText1: 'ПР-ВО Сахар-песок весовой 1кг', node: '', componentQty: '21,19', baseUnit: 'ШТ' },
-];
+const bomRows: SourceReportRow[] = [];
 
 const blockedStockColumns: SourceReportColumn[] = warehouseStockColumns;
 
-const blockedStockRows: SourceReportRow[] = [
-  { id: 'bl-1', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.1', handlingUnit: '1300613553', product: '80259508', consolidationGroup: '', productDescription: 'Форма боул 194*50 PET,500 мкм круглая', quantity: 3840, baseUnit: 'ШТ', movementDate: '44652', shelfLife: '54651', batch: '0000079553', stockType: 'B6', movementTime: '0,543622685', topHandlingUnit: '1300613553', document: '', parentHandlingUnit: '', resource: '' },
-  { id: 'bl-2', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.1', handlingUnit: '1300825768', product: '80279811', consolidationGroup: '', productDescription: 'Мешок конд. В рулоне 55 см (100 шт/уп)', quantity: 25900, baseUnit: 'ШТ', movementDate: '45405', shelfLife: '55403', batch: '0000156564', stockType: 'B6', movementTime: '0,600844907', topHandlingUnit: '1300825768', document: '', parentHandlingUnit: '', resource: '' },
-  { id: 'bl-3', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.3', handlingUnit: '1300614681', product: '80259508', consolidationGroup: '', productDescription: 'Форма боул 194*50 PET,500 мкм круглая', quantity: 3840, baseUnit: 'ШТ', movementDate: '44657', shelfLife: '54656', batch: '0000079857', stockType: 'B6', movementTime: '0,55619213', topHandlingUnit: '1300614681', document: '', parentHandlingUnit: '', resource: '' },
-  { id: 'bl-4', restrictedBatch: '', warehouseType: '120D', storageBin: 'D22.01.01.3', handlingUnit: '1300712731', product: '80205249', consolidationGroup: '', productDescription: 'Лента подарочная для торта 5 мм', quantity: 240, baseUnit: 'ШТ', movementDate: '45026', shelfLife: '55025', batch: '0000113565', stockType: 'B6', movementTime: '0,447453704', topHandlingUnit: '1300712731', document: '', parentHandlingUnit: '', resource: '' },
-];
+const blockedStockRows: SourceReportRow[] = [];
 
-const initialDirectoryRows: DirectoryPosition[] = suppliers.flatMap((supplier, supplierIndex) =>
-  supplier.items.map((item) => ({
-    id: `dir-${item.code}-${supplier.id}`,
-    category: supplier.category,
-    plu: item.code,
-    name: item.name,
-    supplier: supplier.name,
-    supplierSapCode: String(400000 + supplierIndex + 1),
-    contractNumber: supplier.contract,
-    basketNumber: `К-${202600 + supplierIndex + 1}`,
-    piecesPerPallet: item.palletMultiple ?? 0,
-    showInAnalysis: true,
-  })),
-);
+const initialDirectoryRows: DirectoryPosition[] = [];
 
 function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -765,14 +403,7 @@ function DashboardPage() {
   const [dataMessage, setDataMessage] = useState('');
   const [isUpdatingData, setIsUpdatingData] = useState(false);
   const [updateDate, setUpdateDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(() => {
-    try {
-      const stored = localStorage.getItem('analiz-rum:items-directory');
-      return stored ? JSON.parse(stored) as DirectoryPosition[] : initialDirectoryRows;
-    } catch {
-      return initialDirectoryRows;
-    }
-  });
+  const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(initialDirectoryRows);
   const filterModalDrag = useDraggableModal(isFilterPanelOpen);
   const supplierPlanModalDrag = useDraggableModal(Boolean(selectedSupplierPlan));
   const itemDetailsModalDrag = useDraggableModal(Boolean(selectedPackagingItem));
@@ -784,6 +415,11 @@ function DashboardPage() {
     window.analizRum?.getDataState().then(setDataState).catch((error: unknown) =>
       setDataMessage(error instanceof Error ? error.message : 'Не удалось открыть базу данных'));
   }, []);
+
+  useEffect(() => {
+    if (!dataState) return;
+    setDirectoryPositions(dataState.directoryRows.map((row) => ({ ...row, showInAnalysis: Boolean(row.showInAnalysis) })));
+  }, [dataState]);
 
   const updateDatabase = async () => {
     if (!window.analizRum) { setDataMessage('Обновление SQLite доступно в desktop-версии приложения.'); return; }
@@ -1031,11 +667,13 @@ function DashboardPage() {
     [visibleSupplyColumns],
   );
 
+  const currentSupplyRows = (dataState?.supplyRows ?? supplyRows) as SupplyReportRow[];
+
   const filteredSupplyRows = useMemo(() => {
     const matchesText = (source: string | number, search: string) =>
       String(source).toLowerCase().includes(search.toLowerCase());
 
-    return supplyRows.filter((row) => {
+    return currentSupplyRows.filter((row) => {
       const search = supplyFilters.search.trim();
 
       if (
@@ -1114,7 +752,7 @@ function DashboardPage() {
         return true;
       });
     });
-  }, [supplyFilters]);
+  }, [currentSupplyRows, supplyFilters]);
 
   const filteredSupplyStats = useMemo(
     () => ({
@@ -1938,15 +1576,15 @@ function DashboardPage() {
               </div>
             </div>
           ) : activeSection === 'workshop-stock' ? (
-            <SourceReport caption="Остатки цех" columns={workshopStockColumns} rows={workshopStockRows} />
+            <SourceReport caption="Остатки цех" columns={workshopStockColumns} rows={dataState?.workshopRows ?? workshopStockRows} />
           ) : activeSection === 'warehouse-stock' ? (
-            <SourceReport caption="Остатки склад" columns={warehouseStockColumns} rows={warehouseStockRows} />
+            <SourceReport caption="Остатки склад" columns={warehouseStockColumns} rows={dataState?.warehouseRows ?? warehouseStockRows} />
           ) : activeSection === 'bom' ? (
-            <SourceReport caption="Разузловка" columns={bomColumns} rows={bomRows} />
+            <SourceReport caption="Разузловка" columns={bomColumns} rows={dataState?.bomRows ?? bomRows} />
           ) : activeSection === 'blocked-stock' ? (
-            <SourceReport caption="Запас в блоке" columns={blockedStockColumns} rows={blockedStockRows} />
+            <SourceReport caption="Запас в блоке" columns={blockedStockColumns} rows={dataState?.blockedRows ?? blockedStockRows} />
           ) : activeSection === 'items-directory' ? (
-            <ItemsDirectory initialRows={initialDirectoryRows} onRowsChange={setDirectoryPositions} />
+            <ItemsDirectory key={dataState?.selectedDate ?? 'empty'} initialRows={directoryPositions} onRowsChange={setDirectoryPositions} />
           ) : (
             <div className="dashboard-supplier-shell">
             {groupedFilteredSuppliers.map((categoryGroup) => (

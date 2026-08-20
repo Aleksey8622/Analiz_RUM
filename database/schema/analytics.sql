@@ -1,5 +1,26 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS directory_positions (
+  id INTEGER PRIMARY KEY,
+  import_id INTEGER NOT NULL REFERENCES data_imports(id) ON DELETE CASCADE,
+  guid TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT '',
+  plu TEXT NOT NULL,
+  name TEXT NOT NULL,
+  supplier TEXT NOT NULL DEFAULT '',
+  supplier_sap_code TEXT NOT NULL DEFAULT '',
+  contract_number TEXT NOT NULL DEFAULT '',
+  basket_number TEXT NOT NULL DEFAULT '',
+  pieces_per_pallet INTEGER NOT NULL DEFAULT 0,
+  show_in_analysis INTEGER NOT NULL DEFAULT 1,
+  sleeve_format TEXT,
+  sleeve_client TEXT,
+  sleeve_print_run INTEGER,
+  UNIQUE(import_id, guid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_directory_positions_import_plu ON directory_positions(import_id, plu);
+
 -- A correction is a persistent business decision. It is keyed by the SAP
 -- order and item, so it remains applicable after the next daily import.
 CREATE TABLE IF NOT EXISTS supply_corrections (
