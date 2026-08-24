@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   applySupplyView,
@@ -377,6 +378,7 @@ const blockedStockRows: SourceReportRow[] = [];
 const initialDirectoryRows: DirectoryPosition[] = [];
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const {
     activeSupplyView,
@@ -1143,12 +1145,17 @@ function DashboardPage() {
             Справочник позиций
           </button>
         </nav>
-        <a className="dashboard-sidebar__logout" href="/" aria-label="Выход">
+        <button
+          className="dashboard-sidebar__logout"
+          type="button"
+          onClick={() => navigate('/')}
+          aria-label="Выход"
+        >
           <svg className="dashboard-sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 6H6v12h4M13 8l4 4-4 4M8 12h9" />
           </svg>
           <span>Выйти</span>
-        </a>
+        </button>
       </aside>
 
       <section className="dashboard-workspace">
@@ -1580,7 +1587,15 @@ function DashboardPage() {
           ) : activeSection === 'warehouse-stock' ? (
             <SourceReport caption="Остатки склад" columns={warehouseStockColumns} rows={dataState?.warehouseRows ?? warehouseStockRows} />
           ) : activeSection === 'bom' ? (
-            <SourceReport caption="Разузловка" columns={bomColumns} rows={dataState?.bomRows ?? bomRows} />
+            <SourceReport
+              caption="Разузловка"
+              columns={bomColumns}
+              rows={dataState?.bomRows ?? bomRows}
+              getRowClassName={(row) => {
+                const level = Math.max(0, Number(row.level) || 0);
+                return level === 0 ? 'source-report__bom-root' : `source-report__bom-level-${Math.min(level, 8)}`;
+              }}
+            />
           ) : activeSection === 'blocked-stock' ? (
             <SourceReport caption="Запас в блоке" columns={blockedStockColumns} rows={dataState?.blockedRows ?? blockedStockRows} />
           ) : activeSection === 'items-directory' ? (

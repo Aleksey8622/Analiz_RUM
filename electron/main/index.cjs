@@ -6,14 +6,20 @@ const XLSX = require('xlsx-js-style');
 
 let database;
 let databasePath;
-const WINDOWS_SOURCE_FOLDER = String.raw`\\x5.ru\root\Regions\MO-PAVL3\Data\PLANNING\FK01_Долгопрудный\Закупки\Румы\Алексей\Ежедневная проверка\SAP_Reports`;
-const WINDOWS_DATABASE_FOLDER = String.raw`C:\Users\Aleksey.Rudnev\Desktop\Analiz_RUM`;
-const getSourceFolder = () => process.env.ANALIZ_RUM_SOURCE_FOLDER || (process.platform === 'win32' ? WINDOWS_SOURCE_FOLDER : '');
-const getDatabaseFolder = () => process.env.ANALIZ_RUM_DATABASE_FOLDER || (process.platform === 'win32' ? WINDOWS_DATABASE_FOLDER : app.getPath('userData'));
+const readLocalConfig = () => {
+  const configuredPath = process.env.ANALIZ_RUM_CONFIG_FILE;
+  const candidates = [configuredPath, path.join(process.cwd(), 'analiz-rum.config.json'), path.join(path.dirname(process.execPath), 'analiz-rum.config.json')].filter(Boolean);
+  const configPath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!configPath) return {};
+  try { return JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+  catch (error) { throw new Error(`Не удалось прочитать локальную конфигурацию ${configPath}: ${error.message}`); }
+};
+const getSourceFolder = () => process.env.ANALIZ_RUM_SOURCE_FOLDER || readLocalConfig().sourceFolder || '';
+const getDatabaseFolder = () => process.env.ANALIZ_RUM_DATABASE_FOLDER || readLocalConfig().databaseFolder || app.getPath('userData');
 
 const reports = [
-  { type: 'directory', table: 'directory_positions', names: ['справочник', 'карточки позиций', 'directory'], columns: { 'GUID': ['guid', 'text'], 'Категория': ['category', 'text'], 'PLU': ['plu', 'text'], 'Код': ['plu', 'text'], 'Наименование PLU': ['name', 'text'], 'Наименование': ['name', 'text'], 'Поставщик': ['supplier', 'text'], 'SAP-код': ['supplier_sap_code', 'text'], 'Номер договора': ['contract_number', 'text'], 'Ном корзины': ['basket_number', 'text'], 'Номер корзины': ['basket_number', 'text'], 'Штук на паллете': ['pieces_per_pallet', 'integer'], 'Отображать в анализе': ['show_in_analysis', 'integer'], 'Формат обечайки': ['sleeve_format', 'text'], 'Клиент': ['sleeve_client', 'text'], 'Тираж': ['sleeve_print_run', 'integer'] }, required: ['guid', 'plu', 'name'] },
-  { type: 'bom', table: 'bom_rows', names: ['разузловка', 'bom'], columns: { 'Уровень разузловки': ['level', 'integer'], 'Позиция': ['position', 'text'], 'Вид материала': ['material_type', 'text'], '№ компонента': ['component_number', 'text'], 'Краткий текст материала': ['material_text', 'text'], 'Фиктивный узел': ['phantom_node', 'text'], 'Альтернативная позиция': ['alternative_position', 'text'], 'Ранговый список': ['ranked_list', 'integer'], 'ГруппаАльтПоз': ['alternative_group', 'text'], 'Основное PLU': ['main_plu', 'text'], 'Краткий текст материала_1': ['material_text_1', 'text'], 'Узел': ['node', 'text'], 'Кол-во компон. (БЕИ)': ['component_qty', 'number'], 'БЕИ': ['base_unit', 'text'] }, required: ['component_number'] },
+  { type: 'directory', table: 'directory_positions', names: ['справочник позиций', 'справочник', 'карточки позиций', 'directory'], columns: { 'GUID': ['guid', 'text'], 'Категория': ['category', 'text'], 'PLU': ['plu', 'text'], 'Код': ['plu', 'text'], 'Код позиции': ['plu', 'text'], 'Наименование PLU': ['name', 'text'], 'Наименование': ['name', 'text'], 'Наименование позиции': ['name', 'text'], 'Поставщик': ['supplier', 'text'], 'SAP-код': ['supplier_sap_code', 'text'], 'SAP код': ['supplier_sap_code', 'text'], 'Номер договора': ['contract_number', 'text'], 'Ном корзины': ['basket_number', 'text'], 'Номер корзины': ['basket_number', 'text'], 'Штук на паллете': ['pieces_per_pallet', 'integer'], 'Отображать в анализе': ['show_in_analysis', 'integer'], 'Формат обечайки': ['sleeve_format', 'text'], 'Клиент': ['sleeve_client', 'text'], 'Тираж': ['sleeve_print_run', 'integer'] }, required: ['plu', 'name'] },
+  { type: 'bom', table: 'bom_rows', names: ['разузловка', 'bom'], columns: { 'Уровень разузловки': ['level', 'integer'], 'Позиция': ['position', 'text'], 'Вид материала': ['material_type', 'text'], '№ компонента': ['component_number', 'text'], 'Краткий текст материала': ['material_text', 'text'], 'Фиктивный узел': ['phantom_node', 'text'], 'Альтернативная позиция': ['alternative_position', 'text'], 'Ранговый список': ['ranked_list', 'integer'], 'ГруппаАльтПоз': ['alternative_group', 'text'], 'Основное PLU': ['main_plu', 'text'], 'Краткий текст материала_1': ['material_text_1', 'text'], 'Узел': ['node', 'text'], 'Кол-во компон. (БЕИ)': ['component_qty', 'number'], '__Количество как в Excel': ['component_qty_display', 'text'], 'БЕИ': ['base_unit', 'text'] }, required: ['level'] },
   { type: 'supplies', table: 'supply_rows', names: ['поставки', 'поставка'], columns: { 'Номер недели/долг': ['week_or_debt', 'text'], 'Остаток поставки': ['supply_remainder', 'number'], 'Поставщик': ['supplier_code', 'text'], 'Наименование поставщика': ['supplier_name', 'text'], 'Дата заказа': ['order_created_at', 'date'], 'Плановая дата поставки': ['planned_delivery_at', 'date'], 'Дата поставлено': ['delivered_at', 'date'], '№ заказа': ['order_number', 'text'], '№ товара': ['item_code', 'text'], 'Наименование товара': ['item_name', 'text'], 'Количество заказано': ['ordered_qty', 'number'], 'Количество поставлено': ['delivered_qty', 'number'], 'ВидЗаказаНаПоставку': ['order_type', 'text'], 'Удалено': ['deleted', 'text'], 'Возврат': ['return_flag', 'text'], 'Наименование статуса заказа': ['order_status', 'text'], 'Единица измерения': ['unit', 'text'] }, required: ['order_number', 'item_code'] },
   { type: 'workshop_stock', table: 'workshop_stock', names: ['остатки_цех', 'остатки цех'], columns: { 'Номер материала': ['material_number', 'text'], 'Завод': ['plant', 'text'], 'Партия': ['batch', 'text'], 'Склад': ['warehouse', 'text'], 'ЕдИзмерения': ['unit', 'text'], 'СвобИспользЗпс': ['free_stock', 'number'], 'НаКонтрКачества': ['quality_stock', 'number'], 'Блокированный': ['blocked_stock', 'number'], 'Вид материала': ['material_type', 'text'], 'Д/Изготовления': ['manufactured_at', 'date'], 'СрокХранен/МсГ': ['shelf_life', 'date'], 'Последнее ПМ': ['last_movement_at', 'date'] }, required: ['material_number'] },
 ];
@@ -28,6 +34,34 @@ const localDate = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 const normalize = (value) => String(value ?? '').trim().toLocaleLowerCase('ru').replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/gi, '');
+const categoryRules = [
+  [/(лоток|лотки)/i, 'Лотки'],
+  [/(пленка|плёнка)/i, 'Плёнки'],
+  [/(гофра|гофро|короб)/i, 'Гофра и короба'],
+  [/обечайк/i, 'Обечайки'],
+  [/этикетк/i, 'Этикетки'],
+  [/упаковк/i, 'Упаковка'],
+  [/(форма|коррекс|корекс|крышка|стакан|сэндвич|контейнер)/i, 'Индивидуальная упаковка'],
+];
+const normalizeCategory = (category) => ({ 'Пленка': 'Плёнки', 'Плёнка': 'Плёнки', 'Гофра': 'Гофра и короба', 'Короба': 'Гофра и короба', 'Лоток': 'Лотки' }[String(category ?? '').trim()] || String(category ?? '').trim());
+const detectCategory = (name) => categoryRules.find(([pattern]) => pattern.test(String(name ?? '')))?.[1] || 'Прочее';
+const prepareDirectoryRecord = (record) => {
+  const supplier = String(record.supplier ?? '').trim();
+  const category = normalizeCategory(record.category) || detectCategory(record.name);
+  return {
+    ...record,
+    guid: String(record.guid ?? '').trim() || [record.plu, supplier || 'supplier', record.contract_number, record.basket_number].map(normalize).join('::'),
+    category,
+    supplier,
+    supplier_sap_code: String(record.supplier_sap_code ?? '').trim(),
+    contract_number: String(record.contract_number ?? '').trim(),
+    basket_number: String(record.basket_number ?? '').trim(),
+    pieces_per_pallet: Math.max(0, Math.trunc(numberValue(record.pieces_per_pallet) ?? 0)),
+    show_in_analysis: record.show_in_analysis == null
+      ? Number(Boolean(supplier) && !['Этикетки', 'Обечайки'].includes(category))
+      : Number(Boolean(numberValue(record.show_in_analysis))),
+  };
+};
 const numberValue = (value) => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   const source = String(value ?? '').trim().replace(/[\s\u00a0]/g, '');
@@ -37,12 +71,28 @@ const numberValue = (value) => {
   const result = Number(normalized);
   return Number.isFinite(result) ? result : null;
 };
+const bomQuantityValue = (value, unit) => {
+  const source = String(value ?? '').trim().replace(/[\s\u00a0]/g, '');
+  if (!source) return null;
+  const isPieces = String(unit ?? '').trim().toLocaleUpperCase('ru') === 'ШТ';
+  const normalized = source.includes(',')
+    ? source.replace(/\./g, '').replace(',', '.')
+    : isPieces && /^\d{1,3}(\.\d{3})+$/.test(source)
+      ? source.replace(/\./g, '')
+      : source;
+  const result = Number(normalized);
+  return Number.isFinite(result) ? result : null;
+};
 const dateValue = (value) => {
   if (typeof value === 'number') return new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000).toISOString().slice(0, 10);
   const match = String(value ?? '').trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   return match ? `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` : String(value ?? '').trim() || null;
 };
-const convert = (value, type) => type === 'number' ? numberValue(value) : type === 'integer' ? Math.trunc(numberValue(value) ?? 0) : type === 'date' ? dateValue(value) : String(value ?? '').trim() || null;
+const convert = (value, type) => {
+  if (type === 'number') return numberValue(value);
+  if (type === 'integer') { const result = numberValue(value); return result == null ? null : Math.trunc(result); }
+  return type === 'date' ? dateValue(value) : String(value ?? '').trim() || null;
+};
 const persist = () => fs.writeFileSync(databasePath, Buffer.from(database.export()));
 const rows = (sql, params = []) => {
   const statement = database.prepare(sql); statement.bind(params); const result = [];
@@ -58,22 +108,52 @@ const initializeDatabase = async () => {
   for (const file of ['items_directory.sql', 'workshop_stock.sql', 'sap_reports.sql', 'analytics.sql']) {
     database.run(fs.readFileSync(path.join(__dirname, '../../database/schema', file), 'utf8'));
   }
+  if (!rows('PRAGMA table_info(bom_rows)').some((column) => column.name === 'component_qty_display')) {
+    database.run('ALTER TABLE bom_rows ADD COLUMN component_qty_display TEXT');
+  }
   persist();
 };
 
 const recognize = (fileName) => reports.find((report) => report.names.some((name) => fileName.toLocaleLowerCase('ru').includes(name)));
+const bomColumnLayout = [
+  ['level', 'integer'],
+  ['position', 'text'],
+  ['material_type', 'text'],
+  ['component_number', 'text'],
+  ['material_text', 'text'],
+  ['phantom_node', 'text'],
+  ['alternative_position', 'text'],
+  ['ranked_list', 'integer'],
+  ['alternative_group', 'text'],
+  ['main_plu', 'text'],
+  ['material_text_1', 'text'],
+  ['node', 'text'],
+  ['component_qty_display', 'text'],
+  ['base_unit', 'text'],
+];
+const excelDisplayValue = (sheet, rowIndex, columnIndex) => {
+  const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+  const cell = sheet[address];
+  if (!cell || cell.v == null) return null;
+  return typeof cell.v === 'number' ? String(cell.v).replace('.', ',') : String(cell.v);
+};
 const importWorkbook = (filePath, report, reportDate) => {
   const workbook = XLSX.readFile(filePath, { cellDates: false });
   let parsed;
   for (const sheetName of workbook.SheetNames) {
-    const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: null });
+    const sheet = workbook.Sheets[sheetName];
+    const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: null });
+    const rawMatrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
     for (let index = 0; index < Math.min(matrix.length, 50); index += 1) {
       const headerMap = new Map(Object.entries(report.columns).map(([header, definition]) => [normalize(header), definition]));
-      const mapped = matrix[index].map((header) => headerMap.get(normalize(header)) ?? null);
+      const mapped = report.type === 'bom'
+        ? (normalize(matrix[index][0]) === normalize('Уровень разузловки') ? bomColumnLayout : [])
+        : matrix[index].map((header) => headerMap.get(normalize(header)) ?? null);
       if (!report.required.every((key) => mapped.some((definition) => definition?.[0] === key))) continue;
-      parsed = matrix.slice(index + 1).filter((row) => row.some((cell) => cell != null && String(cell).trim())).map((row) => {
-        const record = {}; mapped.forEach((definition, columnIndex) => { if (definition) record[definition[0]] = convert(row[columnIndex], definition[1]); }); return record;
-      }).filter((record) => report.required.every((key) => record[key] != null && record[key] !== ''));
+      parsed = matrix.slice(index + 1).map((row, rowIndex) => ({ row, rawRow: rawMatrix[index + 1 + rowIndex] ?? [], sheetRowIndex: index + 1 + rowIndex })).filter(({ row }) => row.some((cell) => cell != null && String(cell).trim())).map(({ row, rawRow, sheetRowIndex }) => {
+        const record = {}; mapped.forEach((definition, columnIndex) => { if (definition) record[definition[0]] = convert(row[columnIndex], definition[1]); }); if (report.type === 'bom') { record.component_qty_display = excelDisplayValue(sheet, sheetRowIndex, 12); record.component_qty = typeof rawRow[12] === 'number' ? rawRow[12] : bomQuantityValue(rawRow[12], rawRow[13]); } return record;
+      }).filter((record) => report.required.every((key) => record[key] != null && record[key] !== '')).map((record) => report.type === 'directory' ? prepareDirectoryRecord(record) : record);
+      if (report.type === 'directory') parsed = [...new Map(parsed.map((record) => [record.guid, record])).values()];
       break;
     }
     if (parsed) break;
@@ -99,7 +179,7 @@ const snapshot = (date) => {
   const workshopRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,material_number materialNumber,plant,batch,warehouse,unit,free_stock freeStock,quality_stock qualityStock,blocked_stock blocked,material_type materialType,manufactured_at madeAt,shelf_life shelfLife,last_movement_at lastMovement FROM workshop_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='workshop_stock' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
   const warehouseRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,restricted_batch restrictedBatch,warehouse_type warehouseType,storage_bin storageBin,handling_unit handlingUnit,product,consolidation_group consolidationGroup,product_description productDescription,quantity,base_unit baseUnit,movement_date movementDate,shelf_life shelfLife,batch,stock_type stockType,movement_time movementTime,top_handling_unit topHandlingUnit,document,parent_handling_unit parentHandlingUnit,resource FROM warehouse_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='warehouse_stock' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
   const blockedRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,restricted_batch restrictedBatch,warehouse_type warehouseType,storage_bin storageBin,handling_unit handlingUnit,product,consolidation_group consolidationGroup,product_description productDescription,quantity,base_unit baseUnit,movement_date movementDate,shelf_life shelfLife,batch,stock_type stockType,movement_time movementTime,top_handling_unit topHandlingUnit,document,parent_handling_unit parentHandlingUnit,resource FROM blocked_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='blocked_stock' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
-  const bomRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,level,position,material_type materialType,component_number componentNumber,material_text materialText,phantom_node phantomNode,alternative_position alternativePosition,ranked_list rankedList,alternative_group alternativeGroup,main_plu mainPlu,material_text_1 materialText1,node,component_qty componentQty,base_unit baseUnit FROM bom_rows WHERE import_id=(SELECT id FROM data_imports WHERE report_type='bom' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
+  const bomRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,level,position,material_type materialType,component_number componentNumber,material_text materialText,phantom_node phantomNode,alternative_position alternativePosition,ranked_list rankedList,alternative_group alternativeGroup,main_plu mainPlu,material_text_1 materialText1,node,COALESCE(component_qty_display,CAST(component_qty AS TEXT)) componentQty,component_qty componentQtyValue,base_unit baseUnit FROM bom_rows WHERE import_id=(SELECT id FROM data_imports WHERE report_type='bom' AND report_date=? ORDER BY id DESC LIMIT 1) ORDER BY id`, [selectedDate]) : [];
   return { selectedDate, dates: rows("SELECT DISTINCT report_date date FROM data_imports WHERE status='completed' AND report_date IS NOT NULL ORDER BY report_date DESC").map((item) => item.date), imports, stockTotals, supplyTotals, directoryRows, supplyRows, workshopRows, warehouseRows, blockedRows, bomRows };
 };
 
@@ -107,10 +187,7 @@ ipcMain.handle('data:get-state', () => ({ ...snapshot(), databasePath }));
 ipcMain.handle('data:get-snapshot', (_, date) => ({ ...snapshot(date), databasePath }));
 ipcMain.handle('data:update', (_, requestedDate) => {
   const reportDate = requestedDate || localDate();
-  const existing = rows("SELECT COUNT(*) count FROM data_imports WHERE report_date=? AND status='completed'", [reportDate])[0]?.count ?? 0;
-  if (reportDate !== localDate() && existing > 0) return { ...snapshot(reportDate), databasePath, imported: [] };
-  if (reportDate !== localDate()) throw new Error(`Снимок за ${reportDate} ещё не создан.`);
-  const folder = getSourceFolder(); if (!folder) throw new Error('Сетевой путь к SAP-файлам доступен только в Windows-конфигурации приложения.');
+  const folder = getSourceFolder(); if (!folder) throw new Error('Путь к папке Excel не настроен. Создайте локальный файл analiz-rum.config.json по примеру из проекта.');
   if (!fs.existsSync(folder)) throw new Error(`Сетевая папка недоступна: ${folder}`);
   const candidates = fs.readdirSync(folder).filter((name) => /\.xlsx?$/i.test(name)).map((name) => ({ name, path: path.join(folder, name), report: recognize(name), modified: fs.statSync(path.join(folder, name)).mtimeMs })).filter((item) => item.report);
   const latest = [...new Set(candidates.map((item) => item.report.type))].map((type) => candidates.filter((item) => item.report.type === type).sort((a, b) => b.modified - a.modified)[0]);

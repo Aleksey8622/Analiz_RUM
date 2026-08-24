@@ -1628,6 +1628,25 @@
   background: #f2faf5;
 }
 
+.source-report__table .source-report__bom-root {
+  background: #e5f2eb;
+  color: #123f2d;
+  font-weight: 800;
+}
+
+.source-report__table .source-report__bom-root td {
+  border-top: 2px solid #16864a;
+}
+
+.source-report__bom-level-1 td:nth-child(5) { padding-left: 16px; }
+.source-report__bom-level-2 td:nth-child(5) { padding-left: 28px; }
+.source-report__bom-level-3 td:nth-child(5) { padding-left: 40px; }
+.source-report__bom-level-4 td:nth-child(5) { padding-left: 52px; }
+.source-report__bom-level-5 td:nth-child(5) { padding-left: 64px; }
+.source-report__bom-level-6 td:nth-child(5) { padding-left: 76px; }
+.source-report__bom-level-7 td:nth-child(5) { padding-left: 88px; }
+.source-report__bom-level-8 td:nth-child(5) { padding-left: 100px; }
+
 .source-report__table .is-right,
 .supplier-planning__table .is-right {
   text-align: right;

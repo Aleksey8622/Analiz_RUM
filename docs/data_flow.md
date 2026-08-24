@@ -2,10 +2,12 @@
 
 ## Ежедневное обновление
 
-Windows paths:
+Рабочие пути не хранятся в исходном коде. Они задаются локально на компьютере
+в файле `analiz-rum.config.json` по примеру `analiz-rum.config.example.json`
+либо переменными `ANALIZ_RUM_SOURCE_FOLDER` и `ANALIZ_RUM_DATABASE_FOLDER`.
 
-- Excel source: `\\x5.ru\root\Regions\MO-PAVL3\Data\PLANNING\FK01_Долгопрудный\Закупки\Румы\Алексей\Ежедневная проверка\SAP_Reports`
-- SQLite database: `C:\Users\Aleksey.Rudnev\Desktop\Analiz_RUM\analiz_rum.db`
+Файл `analiz-rum.config.json` исключён из Git и не должен передаваться между
+компьютерами вместе с исходным кодом.
 
 1. Пользователь входит в локальное приложение.
 2. Выбирает «Создать обновление» и загружает SAP-файлы.

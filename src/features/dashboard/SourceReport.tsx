@@ -20,6 +20,7 @@ type SourceReportProps = {
   columns: SourceReportColumn[];
   rows: SourceReportRow[];
   onDeleteRow?: (row: SourceReportRow) => void;
+  getRowClassName?: (row: SourceReportRow) => string | undefined;
 };
 
 const splitValues = (value: string) =>
@@ -28,7 +29,13 @@ const splitValues = (value: string) =>
     .map((item) => item.trim().toLocaleLowerCase('ru'))
     .filter(Boolean);
 
-export function SourceReport({ caption, columns, rows, onDeleteRow }: SourceReportProps) {
+const formatCellValue = (row: SourceReportRow, column: SourceReportColumn) => {
+  const value = row[column.key];
+  if (value === '' || value == null) return '';
+  return value;
+};
+
+export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassName }: SourceReportProps) {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<SourceFilter[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -124,10 +131,10 @@ export function SourceReport({ caption, columns, rows, onDeleteRow }: SourceRepo
           </tr></thead>
           <tbody>
             {filteredRows.map((row) => (
-              <tr key={row.id}>
+              <tr className={getRowClassName?.(row)} key={row.id}>
                 {columns.map((column) => (
                   <td className={column.align ? `is-${column.align}` : undefined} key={column.key}>
-                    {row[column.key] === '' ? '—' : row[column.key]}
+                    {formatCellValue(row, column)}
                   </td>
                 ))}
                 {onDeleteRow && (

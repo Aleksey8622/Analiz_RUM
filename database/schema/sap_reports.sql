@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS bom_rows (
   material_text_1 TEXT,
   node TEXT,
   component_qty REAL,
+  component_qty_display TEXT,
   base_unit TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
