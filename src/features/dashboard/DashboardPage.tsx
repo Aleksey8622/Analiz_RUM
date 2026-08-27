@@ -437,9 +437,9 @@ function DashboardPage() {
       }),
     }));
 
-    const analysisExcludedCategories = new Set(['обечайки', 'этикетки']);
+    const isAnalysisExcludedCategory = (category: string) => /обечайк|этикетк/i.test(category);
     directoryPositions
-      .filter((row) => row.showInAnalysis && !analysisExcludedCategories.has(row.category.trim().toLocaleLowerCase('ru')))
+      .filter((row) => row.showInAnalysis && !isAnalysisExcludedCategory(row.category))
       .forEach((row) => {
       const analysisCategory = row.category.trim() || 'Без категории';
       let supplier = nextSuppliers.find((candidate) =>
