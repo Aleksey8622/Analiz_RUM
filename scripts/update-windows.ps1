@@ -8,13 +8,17 @@ if (-not (Test-Path -LiteralPath (Join-Path $project 'package.json'))) {
   throw "Не найдена папка проекта: $project"
 }
 
-$npm = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Programs\nodejs') -Filter npm.cmd -File -Recurse -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending |
+$nodeRoot = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Programs\nodejs') -Directory -ErrorAction SilentlyContinue |
+  Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'npm.cmd') } |
+  Sort-Object Name -Descending |
   Select-Object -First 1 -ExpandProperty FullName
+$npm = if ($nodeRoot) { Join-Path $nodeRoot 'npm.cmd' } else { $null }
 
 if (-not $npm) {
   throw 'Не найден npm.cmd'
 }
+
+$env:Path = "$nodeRoot;$env:Path"
 
 $temp = Join-Path $env:TEMP 'AnalizRUMUpdate'
 $zip = Join-Path $env:TEMP 'AnalizRUMUpdate.zip'
