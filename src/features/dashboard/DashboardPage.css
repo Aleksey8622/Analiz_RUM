@@ -3284,10 +3284,10 @@ textarea:focus { outline: 2px solid rgba(255, 64, 35, .22); outline-offset: 1px;
   padding: 0;
 }
 
-.sleeve-supplier-row td { background: #d7e6de; padding: 0; }
-.sleeve-supplier-row td > div { display: inline-flex; min-width: 190px; gap: 10px; align-items: baseline; border-right: 1px solid #bdd1c6; padding: 10px 12px; }
+.sleeve-supplier-row td { background: #fff3f0; padding: 0; }
+.sleeve-supplier-row td > div { display: inline-flex; min-width: 190px; gap: 10px; align-items: baseline; border-right: 1px solid #ffc7bc; padding: 10px 12px; }
 .sleeve-supplier-row span { color: #667085; font-size: 8px; font-weight: 800; text-transform: uppercase; }
-.sleeve-supplier-row strong { color: #0f5037; font-size: 11px; }
+.sleeve-supplier-row strong { color: #d92d16; font-size: 11px; }
 
 .sleeve-format-row td > div {
   display: inline-flex;

@@ -57,9 +57,11 @@ const prepareDirectoryRecord = (record) => {
     contract_number: String(record.contract_number ?? '').trim(),
     basket_number: String(record.basket_number ?? '').trim(),
     pieces_per_pallet: Math.max(0, Math.trunc(numberValue(record.pieces_per_pallet) ?? 0)),
-    show_in_analysis: record.show_in_analysis == null
-      ? Number(Boolean(supplier) && !['Этикетки', 'Обечайки'].includes(category))
-      : Number(Boolean(numberValue(record.show_in_analysis))),
+    show_in_analysis: ['Этикетки', 'Обечайки'].includes(category)
+      ? 0
+      : record.show_in_analysis == null
+        ? Number(Boolean(supplier))
+        : Number(Boolean(numberValue(record.show_in_analysis))),
   };
 };
 const numberValue = (value) => {
