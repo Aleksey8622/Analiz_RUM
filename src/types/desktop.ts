@@ -11,6 +11,7 @@ declare global {
       getDataState: () => Promise<DataState>;
       updateData: (date: string) => Promise<DataState>;
       getSnapshot: (date: string) => Promise<DataState>;
+      saveDirectoryPosition: (position: DirectoryDataRow) => Promise<DirectoryDataRow>;
     };
   }
 }

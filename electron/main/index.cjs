@@ -35,11 +35,11 @@ const localDate = () => {
 };
 const normalize = (value) => String(value ?? '').trim().toLocaleLowerCase('ru').replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/gi, '');
 const categoryRules = [
+  [/обечайк/i, 'Обечайки'],
+  [/этикетк/i, 'Этикетки'],
   [/(лоток|лотки)/i, 'Лотки'],
   [/(пленка|плёнка)/i, 'Плёнки'],
   [/(гофра|гофро|короб)/i, 'Гофра и короба'],
-  [/обечайк/i, 'Обечайки'],
-  [/этикетк/i, 'Этикетки'],
   [/упаковк/i, 'Упаковка'],
   [/(форма|коррекс|корекс|крышка|стакан|сэндвич|контейнер)/i, 'Индивидуальная упаковка'],
 ];
@@ -113,6 +113,13 @@ const initializeDatabase = async () => {
   if (!rows('PRAGMA table_info(bom_rows)').some((column) => column.name === 'component_qty_display')) {
     database.run('ALTER TABLE bom_rows ADD COLUMN component_qty_display TEXT');
   }
+  database.run(`CREATE TABLE IF NOT EXISTS directory_position_overrides (
+    guid TEXT PRIMARY KEY, category TEXT NOT NULL, plu TEXT NOT NULL, name TEXT NOT NULL,
+    supplier TEXT NOT NULL, supplier_sap_code TEXT NOT NULL, contract_number TEXT NOT NULL,
+    basket_number TEXT NOT NULL, pieces_per_pallet INTEGER NOT NULL DEFAULT 0,
+    show_in_analysis INTEGER NOT NULL DEFAULT 0, sleeve_format TEXT, sleeve_client TEXT,
+    sleeve_print_run INTEGER, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
   persist();
 };
 
@@ -176,7 +183,7 @@ const snapshot = (date) => {
   const imports = selectedDate ? rows('SELECT report_type,source_name,row_count,imported_at FROM data_imports WHERE report_date = ? ORDER BY report_type', [selectedDate]) : [];
   const stockTotals = selectedDate ? rows(`WITH w AS (SELECT product material_number,SUM(quantity) warehouse FROM warehouse_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='warehouse_stock' AND report_date=? ORDER BY id DESC LIMIT 1) GROUP BY product), p AS (SELECT material_number,SUM(free_stock) production FROM workshop_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='workshop_stock' AND report_date=? ORDER BY id DESC LIMIT 1) GROUP BY material_number), b AS (SELECT product material_number,SUM(quantity) blocked FROM blocked_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='blocked_stock' AND report_date=? ORDER BY id DESC LIMIT 1) GROUP BY product), keys AS (SELECT material_number FROM w UNION SELECT material_number FROM p UNION SELECT material_number FROM b) SELECT keys.material_number materialNumber,COALESCE(w.warehouse,0) warehouse,COALESCE(p.production,0) production,COALESCE(b.blocked,0) blocked FROM keys LEFT JOIN w USING(material_number) LEFT JOIN p USING(material_number) LEFT JOIN b USING(material_number)`, [selectedDate, selectedDate, selectedDate]) : [];
   const supplyTotals = selectedDate ? rows(`SELECT item_code materialNumber,SUM(COALESCE(supply_remainder,0)) supplyRemainder FROM supply_rows WHERE import_id=(SELECT id FROM data_imports WHERE report_type='supplies' AND report_date=? ORDER BY id DESC LIMIT 1) GROUP BY item_code`, [selectedDate]) : [];
-  const directoryRows = selectedDate ? rows(`SELECT guid id,category,plu,name,supplier,supplier_sap_code supplierSapCode,contract_number contractNumber,basket_number basketNumber,pieces_per_pallet piecesPerPallet,show_in_analysis showInAnalysis,sleeve_format sleeveFormat,sleeve_client sleeveClient,sleeve_print_run sleevePrintRun FROM directory_positions WHERE import_id=(SELECT id FROM data_imports WHERE report_type='directory' AND report_date<=? ORDER BY report_date DESC,id DESC LIMIT 1)`, [selectedDate]) : [];
+  const directoryRows = selectedDate ? rows(`SELECT d.guid id,COALESCE(o.category,d.category) category,COALESCE(o.plu,d.plu) plu,COALESCE(o.name,d.name) name,COALESCE(o.supplier,d.supplier) supplier,COALESCE(o.supplier_sap_code,d.supplier_sap_code) supplierSapCode,COALESCE(o.contract_number,d.contract_number) contractNumber,COALESCE(o.basket_number,d.basket_number) basketNumber,COALESCE(o.pieces_per_pallet,d.pieces_per_pallet) piecesPerPallet,COALESCE(o.show_in_analysis,d.show_in_analysis) showInAnalysis,COALESCE(o.sleeve_format,d.sleeve_format) sleeveFormat,COALESCE(o.sleeve_client,d.sleeve_client) sleeveClient,COALESCE(o.sleeve_print_run,d.sleeve_print_run) sleevePrintRun FROM directory_positions d LEFT JOIN directory_position_overrides o ON o.guid=d.guid WHERE d.import_id=(SELECT id FROM data_imports WHERE report_type='directory' AND report_date<=? ORDER BY report_date DESC,id DESC LIMIT 1)`, [selectedDate]) : [];
   const supplyRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,week_or_debt weekOrDebt,supply_remainder supplyRemainder,supplier_code supplierCode,supplier_name supplierName,order_created_at orderCreatedAt,planned_delivery_at plannedDeliveryAt,delivered_at deliveredAt,order_number orderNumber,item_code itemCode,item_name itemName,ordered_qty orderedQty,delivered_qty deliveredQty,order_type orderType,deleted,return_flag returnFlag,order_status orderStatus,unit FROM supply_rows WHERE import_id=(SELECT id FROM data_imports WHERE report_type='supplies' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
   const workshopRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,material_number materialNumber,plant,batch,warehouse,unit,free_stock freeStock,quality_stock qualityStock,blocked_stock blocked,material_type materialType,manufactured_at madeAt,shelf_life shelfLife,last_movement_at lastMovement FROM workshop_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='workshop_stock' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
   const warehouseRows = selectedDate ? rows(`SELECT CAST(id AS TEXT) id,restricted_batch restrictedBatch,warehouse_type warehouseType,storage_bin storageBin,handling_unit handlingUnit,product,consolidation_group consolidationGroup,product_description productDescription,quantity,base_unit baseUnit,movement_date movementDate,shelf_life shelfLife,batch,stock_type stockType,movement_time movementTime,top_handling_unit topHandlingUnit,document,parent_handling_unit parentHandlingUnit,resource FROM warehouse_stock WHERE import_id=(SELECT id FROM data_imports WHERE report_type='warehouse_stock' AND report_date=? ORDER BY id DESC LIMIT 1)`, [selectedDate]) : [];
@@ -187,6 +194,13 @@ const snapshot = (date) => {
 
 ipcMain.handle('data:get-state', () => ({ ...snapshot(), databasePath }));
 ipcMain.handle('data:get-snapshot', (_, date) => ({ ...snapshot(date), databasePath }));
+ipcMain.handle('directory:save-position', (_, position) => {
+  const category = /обечайк/i.test(position.name) ? 'Обечайки' : normalizeCategory(position.category);
+  const values = [position.id, category, position.plu, position.name, position.supplier, position.supplierSapCode, position.contractNumber, position.basketNumber, Math.max(0, Math.trunc(Number(position.piecesPerPallet) || 0)), Number(Boolean(position.showInAnalysis) && !/обечайк|этикетк/i.test(category)), position.sleeveFormat || null, position.sleeveClient || null, Math.max(0, Math.trunc(Number(position.sleevePrintRun) || 0)) || null];
+  database.run(`INSERT INTO directory_position_overrides(guid,category,plu,name,supplier,supplier_sap_code,contract_number,basket_number,pieces_per_pallet,show_in_analysis,sleeve_format,sleeve_client,sleeve_print_run) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(guid) DO UPDATE SET category=excluded.category,plu=excluded.plu,name=excluded.name,supplier=excluded.supplier,supplier_sap_code=excluded.supplier_sap_code,contract_number=excluded.contract_number,basket_number=excluded.basket_number,pieces_per_pallet=excluded.pieces_per_pallet,show_in_analysis=excluded.show_in_analysis,sleeve_format=excluded.sleeve_format,sleeve_client=excluded.sleeve_client,sleeve_print_run=excluded.sleeve_print_run,updated_at=CURRENT_TIMESTAMP`, values);
+  persist();
+  return { ...position, category, showInAnalysis: Boolean(values[9]) };
+});
 ipcMain.handle('data:update', (_, requestedDate) => {
   const reportDate = requestedDate || localDate();
   const folder = getSourceFolder(); if (!folder) throw new Error('Путь к папке Excel не настроен. Создайте локальный файл analiz-rum.config.json по примеру из проекта.');

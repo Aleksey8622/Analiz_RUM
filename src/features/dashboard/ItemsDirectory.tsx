@@ -37,11 +37,11 @@ const SLEEVE_RUNS_KEY = 'analiz-rum:sleeve-print-runs';
 const sleeveRunKey = (supplier: string, format: string) => `${supplier.trim()}::${format.trim()}`;
 
 const categoryRules: Array<[RegExp, string]> = [
+  [/обечайк/i, 'Обечайки'],
+  [/этикетк/i, 'Этикетки'],
   [/(лоток|лотки)/i, 'Лотки'],
   [/(пленка|плёнка)/i, 'Плёнки'],
   [/(гофра|гофро|короб)/i, 'Гофра и короба'],
-  [/обечайк/i, 'Обечайки'],
-  [/этикетк/i, 'Этикетки'],
   [/упаковк/i, 'Упаковка'],
   [/(форма|коррекс|корекс|крышка|стакан|сэндвич|контейнер)/i, 'Индивидуальная упаковка'],
 ];
@@ -49,9 +49,19 @@ const categoryRules: Array<[RegExp, string]> = [
 const detectCategory = (name: string) =>
   categoryRules.find(([pattern]) => pattern.test(name))?.[1] ?? 'Прочее';
 
-const loadRows = (initialRows: DirectoryPosition[]) => {
-  return initialRows.map((row) => ({ ...row, category: row.category.trim() }));
-};
+const detectSleeveClient = (name: string) => /(^|[^a-zа-я0-9])sel([^a-zа-я0-9]|$)/i.test(name)
+  ? 'Перекрёсток'
+  : /(^|[^a-zа-я0-9])5[kк]([^a-zа-я0-9]|$)/i.test(name) ? 'Пятёрочка' : '';
+
+const loadRows = (initialRows: DirectoryPosition[]) => initialRows.map((row) => {
+  const isSleeve = /обечайк/i.test(row.name) || /обечайк/i.test(row.category);
+  return {
+    ...row,
+    category: isSleeve ? 'Обечайки' : row.category.trim(),
+    sleeveClient: isSleeve ? (detectSleeveClient(row.name) || row.sleeveClient) : row.sleeveClient,
+    sleeveFormat: isSleeve ? (row.sleeveFormat || detectSleeveFormat(row.name, DEFAULT_SLEEVE_FORMATS)) : row.sleeveFormat,
+  };
+});
 
 const emptySupplier: SupplierProfile = {
   name: '',
@@ -206,7 +216,7 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
           piecesPerPallet: Number((pallet || bulkPiecesPerPallet).replace(/\s/g, '')) || 0,
           showInAnalysis: supplier.showInAnalysis && !['Этикетки', 'Обечайки'].includes(category),
           sleeveFormat,
-          sleeveClient: isSleeve ? (sleeveClientOverrides[index] || sleeveClient) : undefined,
+          sleeveClient: isSleeve ? (detectSleeveClient(name) || sleeveClientOverrides[index] || sleeveClient) : undefined,
           sleevePrintRun,
         } satisfies DirectoryPosition;
       })
@@ -259,11 +269,13 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
     });
   };
 
-  const saveEditing = () => {
+  const saveEditing = async () => {
     if (!editingRow?.plu.trim() || !editingRow.name.trim() || !editingRow.supplier.trim()) return;
-    if (editingRow.category === 'Обечайки' && (!editingRow.sleeveFormat || !editingRow.sleevePrintRun)) return;
     if (editingRow.category === 'Обечайки' && editingRow.sleeveFormat && editingRow.sleevePrintRun) saveSleevePrintRun(editingRow.supplier, editingRow.sleeveFormat, editingRow.sleevePrintRun);
-    persistRows(rows.map((row) => row.id === editingRow.id ? editingRow : row));
+    const savedRow = window.analizRum?.saveDirectoryPosition
+      ? await window.analizRum.saveDirectoryPosition(editingRow) as DirectoryPosition
+      : editingRow;
+    persistRows(rows.map((row) => row.id === savedRow.id ? savedRow : row));
     setEditingRow(null);
     setSelectedRowIds([]);
   };

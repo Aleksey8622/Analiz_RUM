@@ -4,4 +4,5 @@ contextBridge.exposeInMainWorld('analizRum', {
   getDataState: () => ipcRenderer.invoke('data:get-state'),
   updateData: (date) => ipcRenderer.invoke('data:update', date),
   getSnapshot: (date) => ipcRenderer.invoke('data:get-snapshot', date),
+  saveDirectoryPosition: (position) => ipcRenderer.invoke('directory:save-position', position),
 });
