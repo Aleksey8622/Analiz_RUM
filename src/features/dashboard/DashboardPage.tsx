@@ -110,21 +110,6 @@ type PackagingCategoryGroup = {
   itemCount: number;
 };
 
-const packagingSections = [
-  {
-    id: 'trays',
-    title: 'Лотки · ФКД · долгопродный',
-    description: 'Только лотки',
-    categories: ['Лотки', 'Индивидуальная упаковка'],
-  },
-  {
-    id: 'film-corrugated-boxes',
-    title: 'Плёнки · гофра · короба · ФКД · долгопродный',
-    description: 'Плёнки, гофра, короба и сопутствующая упаковка',
-    categories: ['Пленка', 'Плёнки', 'Гофра', 'Короба', 'Гофра и короба', 'Упаковка'],
-  },
-] as const;
-
 const suppliers: Supplier[] = [];
 
 const analysisFilterFields = ['Код позиции', 'Название позиции', 'Поставщик'];
@@ -392,7 +377,7 @@ function DashboardPage() {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<FilterRow[]>([]);
   const [expandedSuppliers, setExpandedSuppliers] = useState<string[]>([]);
-  const [expandedPackagingSections, setExpandedPackagingSections] = useState<string[]>(() => packagingSections.map((section) => section.id));
+  const [expandedPackagingSections, setExpandedPackagingSections] = useState<string[]>([]);
   const [selectedPackagingItem, setSelectedPackagingItem] = useState<SelectedPackagingItem | null>(null);
   const [selectedSupplierPlan, setSelectedSupplierPlan] = useState<Supplier | null>(null);
   const [supplierPlanRows, setSupplierPlanRows] = useState<Record<string, SupplierPlanRow>>({});
@@ -447,12 +432,10 @@ function DashboardPage() {
       }),
     }));
 
-    directoryPositions.filter((row) => row.showInAnalysis).forEach((row) => {
-      const analysisCategory = row.category === 'Плёнки'
-        ? 'Пленка'
-        : row.category === 'Гофра и короба'
-          ? (/\bкороб/i.test(row.name) ? 'Короба' : 'Гофра')
-          : row.category;
+    directoryPositions
+      .filter((row) => row.showInAnalysis && row.category.trim().toLocaleLowerCase('ru') !== 'обечайки')
+      .forEach((row) => {
+      const analysisCategory = row.category.trim() || 'Без категории';
       let supplier = nextSuppliers.find((candidate) =>
         candidate.name === row.supplier && candidate.category === analysisCategory,
       );
@@ -642,16 +625,14 @@ function DashboardPage() {
   [analysisSuppliers, savedSupplyPlans]);
 
   const groupedFilteredSuppliers = useMemo<PackagingCategoryGroup[]>(() => {
-    return packagingSections
-      .map((section) => {
-        const sectionSuppliers = filteredSuppliers.filter((supplier) =>
-          (section.categories as readonly string[]).includes(supplier.category),
-        );
+    return [...new Set(filteredSuppliers.map((supplier) => supplier.category.trim()).filter(Boolean))]
+      .map((category) => {
+        const sectionSuppliers = filteredSuppliers.filter((supplier) => supplier.category === category);
 
         return {
-          id: section.id,
-          title: section.title,
-          description: section.description,
+          id: `category-${category.toLocaleLowerCase('ru').replace(/[^a-zа-яё0-9]+/gi, '-')}`,
+          title: `${category} · ФК Долгопрудный`,
+          description: `Категория из справочника: ${category}`,
           suppliers: sectionSuppliers,
           itemCount: sectionSuppliers.reduce((total, supplier) => total + supplier.visibleItems.length, 0),
         };
@@ -806,14 +787,8 @@ function DashboardPage() {
     }
 
     setExpandedSuppliers(filteredSuppliers.map((supplier) => supplier.id));
-    setExpandedPackagingSections(
-      packagingSections
-        .filter((section) =>
-          filteredSuppliers.some((supplier) => (section.categories as readonly string[]).includes(supplier.category)),
-        )
-        .map((section) => section.id),
-    );
-  }, [analysisFilters.advanced, filteredSuppliers]);
+    setExpandedPackagingSections(groupedFilteredSuppliers.map((section) => section.id));
+  }, [analysisFilters.advanced, filteredSuppliers, groupedFilteredSuppliers]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {

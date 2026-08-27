@@ -37,7 +37,9 @@ export function SourceReport({ caption, columns, rows, onDeleteRow }: SourceRepo
     const query = search.trim().toLocaleLowerCase('ru');
     const activeFilters = filters.filter((filter) => filter.field && filter.value.trim());
 
-    return rows.filter((row) => {
+    return [...rows]
+      .sort((left, right) => Number(left.id) - Number(right.id))
+      .filter((row) => {
       const matchesSearch = !query || columns.some((column) =>
         String(row[column.key] ?? '').toLocaleLowerCase('ru').includes(query),
       );

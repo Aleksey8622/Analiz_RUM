@@ -46,19 +46,11 @@ const categoryRules: Array<[RegExp, string]> = [
   [/(форма|коррекс|корекс|крышка|стакан|сэндвич|контейнер)/i, 'Индивидуальная упаковка'],
 ];
 
-const normalizeCategory = (category: string) => ({
-  'Пленка': 'Плёнки',
-  'Плёнка': 'Плёнки',
-  'Гофра': 'Гофра и короба',
-  'Короба': 'Гофра и короба',
-  'Лоток': 'Лотки',
-}[category] ?? category);
-
 const detectCategory = (name: string) =>
   categoryRules.find(([pattern]) => pattern.test(name))?.[1] ?? 'Прочее';
 
 const loadRows = (initialRows: DirectoryPosition[]) => {
-  return initialRows.map((row) => ({ ...row, category: normalizeCategory(row.category) }));
+  return initialRows.map((row) => ({ ...row, category: row.category.trim() }));
 };
 
 const emptySupplier: SupplierProfile = {
