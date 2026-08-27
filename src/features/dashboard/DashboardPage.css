@@ -29,6 +29,29 @@
   text-align: center;
 }
 
+/* Final DELEKTO cascade guard: keep legacy compact rules from restoring old colors. */
+.dashboard-page {
+  background: #f4f5f6;
+}
+
+.dashboard-sidebar {
+  background: linear-gradient(180deg, #ff4023 0%, #dd2e16 100%);
+}
+
+.dashboard-header__label {
+  color: #d92d16;
+}
+
+.dashboard-header__context .is-ready {
+  color: #d92d16;
+}
+
+.dashboard-button--primary,
+.dashboard-details__header {
+  border-color: #ff4023;
+  background: #ff4023;
+}
+
 /* DELEKTO corporate theme overrides. Orange is an accent; data surfaces stay neutral. */
 .dashboard-page { background: #f4f5f6; color: var(--color-text); }
 .dashboard-sidebar { background: linear-gradient(180deg, #ff4023 0%, #dd2e16 100%); box-shadow: 8px 0 24px rgba(137, 29, 11, .16); }
@@ -1042,12 +1065,12 @@ textarea:focus { outline: 2px solid rgba(255, 64, 35, .22); outline-offset: 1px;
 /* Analysis workspace: compact planning surface inspired by the source workbook. */
 .dashboard-page {
   background:
-    radial-gradient(circle at 78% -10%, rgba(26, 127, 104, 0.08), transparent 30%),
-    #f4f6f8;
+    radial-gradient(circle at 78% -10%, rgba(255, 64, 35, 0.07), transparent 30%),
+    #f4f5f6;
 }
 
 .dashboard-sidebar {
-  background: linear-gradient(180deg, #152b35 0%, #1b3b45 58%, #123b35 100%);
+  background: linear-gradient(180deg, #ff4023 0%, #e6341a 58%, #c82914 100%);
 }
 
 .dashboard-header__label {
@@ -2369,7 +2392,7 @@ textarea:focus { outline: 2px solid rgba(255, 64, 35, .22); outline-offset: 1px;
 
 .dashboard-header__label {
   margin-bottom: 2px;
-  color: #008e35;
+  color: #d92d16;
   font-size: 8px;
   letter-spacing: 0.06em;
 }

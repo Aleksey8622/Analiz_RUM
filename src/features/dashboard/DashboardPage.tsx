@@ -1155,7 +1155,7 @@ function DashboardPage() {
       <section className="dashboard-workspace">
         <header className="dashboard-header">
           <div>
-            <span className="dashboard-header__label">DELEKTO · УПАКОВКА</span>
+            <span className="dashboard-header__label">DELEKTO · АНАЛИЗ</span>
             <h1>{sectionTitles[activeSection].title}</h1>
             <p>{sectionTitles[activeSection].description}</p>
             {activeSection === 'analysis' && (
