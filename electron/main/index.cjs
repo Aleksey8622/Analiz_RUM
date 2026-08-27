@@ -195,12 +195,51 @@ ipcMain.handle('data:update', (_, requestedDate) => {
   database.run('BEGIN'); try { const imported = latest.map((item) => importWorkbook(item.path, item.report, reportDate)); database.run('COMMIT'); persist(); return { ...snapshot(reportDate), databasePath, imported }; } catch (error) { database.run('ROLLBACK'); throw error; }
 });
 
-const createWindow = () => {
-  const window = new BrowserWindow({ width: 1500, height: 960, webPreferences: { preload: path.join(__dirname, '../preload/index.cjs'), contextIsolation: true, nodeIntegration: false } });
+const iconPath = path.resolve(__dirname, '../../assets/delekto-kitchen-icon.png');
+
+const createSplashWindow = () => {
+  const splash = new BrowserWindow({
+    width: 420,
+    height: 360,
+    frame: false,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    center: true,
+    show: false,
+    backgroundColor: '#ffffff',
+    icon: iconPath,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splash.loadFile(path.resolve(__dirname, '../splash.html'));
+  splash.once('ready-to-show', () => splash.show());
+  return splash;
+};
+
+const createWindow = (splash) => {
+  const window = new BrowserWindow({ width: 1500, height: 960, show: false, backgroundColor: '#ffffff', icon: iconPath, webPreferences: { preload: path.join(__dirname, '../preload/index.cjs'), contextIsolation: true, nodeIntegration: false } });
   const devUrl = process.argv.find((argument) => argument.startsWith('--dev-url='))?.slice('--dev-url='.length);
   if (devUrl) window.loadURL(devUrl);
   else window.loadFile(path.resolve(__dirname, '../../dist/index.html'));
+  window.once('ready-to-show', () => {
+    window.show();
+    if (splash && !splash.isDestroyed()) splash.close();
+  });
+  return window;
 };
 
-app.whenReady().then(async () => { await initializeDatabase(); createWindow(); });
+app.setName('DELEKTO Analysis Room');
+app.whenReady().then(async () => {
+  const splashStartedAt = Date.now();
+  const splash = createSplashWindow();
+  try {
+    await initializeDatabase();
+    const remainingSplashTime = Math.max(0, 1200 - (Date.now() - splashStartedAt));
+    if (remainingSplashTime) await new Promise((resolve) => setTimeout(resolve, remainingSplashTime));
+    createWindow(splash);
+  } catch (error) {
+    if (!splash.isDestroyed()) splash.close();
+    throw error;
+  }
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
