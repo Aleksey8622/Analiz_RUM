@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export type SourceReportColumn = {
   key: string;
@@ -39,6 +39,7 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<SourceFilter[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(500);
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('ru');
@@ -60,6 +61,10 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
       return matchesSearch && matchesFilters;
     });
   }, [columns, filters, rows, search]);
+
+  useEffect(() => setVisibleLimit(500), [filters, rows, search]);
+
+  const visibleRows = useMemo(() => filteredRows.slice(0, visibleLimit), [filteredRows, visibleLimit]);
 
   const updateFilter = (id: number, field: 'field' | 'value', value: string) => {
     setFilters((current) => current.map((filter) => filter.id === id ? { ...filter, [field]: value } : filter));
@@ -132,7 +137,7 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
             {onDeleteRow && <th className="is-center source-report__action-header">Действие</th>}
           </tr></thead>
           <tbody>
-            {filteredRows.map((row) => (
+            {visibleRows.map((row) => (
               <tr className={getRowClassName?.(row)} key={row.id}>
                 {columns.map((column) => (
                   <td className={column.align ? `is-${column.align}` : undefined} key={column.key}>
@@ -149,6 +154,11 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
           </tbody>
         </table>
         {filteredRows.length === 0 && <div className="source-report__empty">По заданным условиям ничего не найдено</div>}
+        {visibleRows.length < filteredRows.length && (
+          <button className="source-report__load-more" type="button" onClick={() => setVisibleLimit((current) => current + 500)}>
+            Показать ещё 500 · осталось {filteredRows.length - visibleRows.length}
+          </button>
+        )}
       </div>
     </div>
   );

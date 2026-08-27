@@ -29,6 +29,54 @@
   text-align: center;
 }
 
+/* DELEKTO corporate theme overrides. Orange is an accent; data surfaces stay neutral. */
+.dashboard-page { background: #f4f5f6; color: var(--color-text); }
+.dashboard-sidebar { background: linear-gradient(180deg, #ff4023 0%, #dd2e16 100%); box-shadow: 8px 0 24px rgba(137, 29, 11, .16); }
+.dashboard-sidebar.is-open { box-shadow: 14px 0 32px rgba(137, 29, 11, .22); }
+.dashboard-sidebar__nav button.is-active { color: #fff; text-shadow: 0 1px 10px rgba(91, 15, 0, .32); }
+.dashboard-sidebar__nav button.is-active::after { background: #fff; }
+.dashboard-header__label { color: var(--color-primary-dark); }
+.dashboard-header__context .is-ready { color: var(--color-primary-dark); }
+.dashboard-button--primary { border-color: var(--color-primary); background: var(--color-primary); box-shadow: 0 7px 16px rgba(255, 64, 35, .18); }
+.dashboard-button--primary:hover { border-color: var(--color-primary-dark); background: var(--color-primary-dark); }
+.dashboard-button:disabled { cursor: wait; opacity: .62; }
+.dashboard-icon-button:hover,
+.dashboard-button--secondary:hover,
+.dashboard-clear-button:hover,
+.dashboard-filter-cancel:hover { border-color: #ffc7bc; background: #fff5f2; color: var(--color-primary-dark); }
+.dashboard-summary__item { border-color: #e1e4e8; box-shadow: 0 3px 12px rgba(32, 42, 53, .035); }
+.dashboard-summary__item--critical { border-color: #ffc3b8; background: #fff5f2; }
+.dashboard-summary__item--critical strong { color: var(--color-primary-dark); }
+.dashboard-category-header,
+.dashboard-supplier-row { border-color: #e2e4e7; }
+.dashboard-category-header:hover,
+.dashboard-supplier-row:hover { background: #fff7f5; }
+.dashboard-category-header[aria-expanded='true'],
+.dashboard-supplier-row[aria-expanded='true'] { border-left-color: var(--color-primary); }
+.dashboard-report-table th,
+.source-report__table th,
+.items-directory__bulk-table th { background: #343b43; color: #fff; }
+.source-report__toolbar > button.is-active,
+.dashboard-saved-views button.is-active,
+.items-directory__mode button.is-active { border-color: #ff9d8c; background: #fff0ed; color: var(--color-primary-dark); }
+.source-report__load-more {
+  display: block;
+  margin: 14px auto;
+  border: 1px solid #ffab9c;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--color-primary-dark);
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.source-report__load-more:hover { background: #fff3f0; }
+.items-directory__modal > header { background: #343b43; }
+input:focus,
+select:focus,
+textarea:focus { outline: 2px solid rgba(255, 64, 35, .22); outline-offset: 1px; }
+
 .dashboard-sidebar {
   position: fixed;
   inset: 0 auto 0 0;

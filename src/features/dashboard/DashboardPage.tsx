@@ -25,6 +25,7 @@ import { SourceReport, type SourceReportColumn, type SourceReportRow } from './S
 import { ItemsDirectory, type DirectoryPosition } from './ItemsDirectory';
 import { SleeveAnalysis } from './SleeveAnalysis';
 import { useDraggableModal } from '../../components/ui/useDraggableModal';
+import { DashboardSkeleton, DelektoLoader } from '../../components/ui/DelektoLoader';
 import { exportAnalysisWorkbook, exportSupplyWorkbook } from './exportWorkbook';
 import type { DataState } from '../../types/desktop';
 import './DashboardPage.css';
@@ -389,6 +390,8 @@ function DashboardPage() {
   const [dataState, setDataState] = useState<DataState | null>(null);
   const [dataMessage, setDataMessage] = useState('');
   const [isUpdatingData, setIsUpdatingData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [visibleSupplyLimit, setVisibleSupplyLimit] = useState(500);
   const [updateDate, setUpdateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(initialDirectoryRows);
   const filterModalDrag = useDraggableModal(isFilterPanelOpen);
@@ -737,6 +740,13 @@ function DashboardPage() {
     });
   }, [currentSupplyRows, supplyFilters]);
 
+  useEffect(() => setVisibleSupplyLimit(500), [currentSupplyRows, supplyFilters]);
+
+  const visibleSupplyRows = useMemo(
+    () => filteredSupplyRows.slice(0, visibleSupplyLimit),
+    [filteredSupplyRows, visibleSupplyLimit],
+  );
+
   const filteredSupplyStats = useMemo(
     () => ({
       orders: new Set(filteredSupplyRows.map((row) => row.orderNumber)).size,
@@ -910,13 +920,19 @@ function DashboardPage() {
     setIsFilterPanelOpen(false);
   };
 
-  const exportCurrentSection = () => {
-    if (activeSection === 'supply-report') {
-      exportSupplyWorkbook(filteredSupplyRows, orderedVisibleSupplyColumns);
-      return;
-    }
+  const exportCurrentSection = async () => {
+    setIsExporting(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 30)));
+    try {
+      if (activeSection === 'supply-report') {
+        exportSupplyWorkbook(filteredSupplyRows, orderedVisibleSupplyColumns);
+        return;
+      }
 
-    exportAnalysisWorkbook(groupedFilteredSuppliers);
+      exportAnalysisWorkbook(groupedFilteredSuppliers);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const toggleSupplier = (supplierId: string) => {
@@ -1034,6 +1050,9 @@ function DashboardPage() {
 
   return (
     <main className="dashboard-page">
+      {(isUpdatingData || isExporting) && (
+        <DelektoLoader overlay label={isUpdatingData ? 'Обновляю данные и базу…' : 'Формирую файл экспорта…'} />
+      )}
       <aside
         ref={sidebarRef}
         className={`dashboard-sidebar ${isSidebarOpen ? 'is-open' : ''}`}
@@ -1230,8 +1249,8 @@ function DashboardPage() {
                 </aside>
               )}
             </div>
-            <button type="button" className="dashboard-button dashboard-button--secondary" onClick={exportCurrentSection}>
-              Экспорт
+            <button type="button" className="dashboard-button dashboard-button--secondary" disabled={isExporting} onClick={exportCurrentSection}>
+              {isExporting ? 'Экспорт…' : 'Экспорт'}
             </button>
             {activeSection === 'analysis' && <input className="dashboard-update-date" type="date" value={updateDate} onChange={(event) => setUpdateDate(event.target.value)} aria-label="Дата обновления данных" />}
             {activeSection === 'analysis' && <button type="button" className="dashboard-button dashboard-button--primary" disabled={isUpdatingData} onClick={updateDatabase}>{isUpdatingData ? 'Обновление…' : 'Обновить данные'}</button>}
@@ -1490,7 +1509,9 @@ function DashboardPage() {
         </div>
 
         <div className="dashboard-workbench">
-          {activeSection === 'supply-plan' ? (
+          {!dataState && !dataMessage ? (
+            <DashboardSkeleton />
+          ) : activeSection === 'supply-plan' ? (
             supplyPlanRows.length > 0 ? (
               <SourceReport
                 caption="План поставки"
@@ -1539,7 +1560,7 @@ function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSupplyRows.map((row) => (
+                    {visibleSupplyRows.map((row) => (
                       <tr key={row.id}>
                         {orderedVisibleSupplyColumns.map((column) => {
                           const value = row[column.key];
@@ -1556,6 +1577,11 @@ function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+              {visibleSupplyRows.length < filteredSupplyRows.length && (
+                <button className="source-report__load-more" type="button" onClick={() => setVisibleSupplyLimit((current) => current + 500)}>
+                  Показать ещё 500 · осталось {filteredSupplyRows.length - visibleSupplyRows.length}
+                </button>
+              )}
             </div>
           ) : activeSection === 'workshop-stock' ? (
             <SourceReport caption="Остатки цех" columns={workshopStockColumns} rows={dataState?.workshopRows ?? workshopStockRows} />

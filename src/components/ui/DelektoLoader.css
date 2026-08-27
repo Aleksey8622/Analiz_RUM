@@ -1,0 +1,56 @@
+.delekto-loader {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+}
+
+.delekto-loader--overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  place-content: center;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: blur(5px);
+}
+
+.delekto-loader__letters { display: flex; gap: 5px; }
+.delekto-loader__letters span {
+  color: rgba(255, 64, 35, .28);
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  animation: delekto-letter 1.4s ease-in-out infinite;
+}
+
+.delekto-loader__label { font-size: 12px; font-weight: 700; }
+
+@keyframes delekto-letter {
+  0%, 45%, 100% { color: rgba(255, 64, 35, .28); transform: translateY(0); }
+  18% { color: var(--color-primary); transform: translateY(-7px); }
+}
+
+.dashboard-skeleton { display: grid; gap: 14px; padding: 2px; }
+.dashboard-skeleton__cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.dashboard-skeleton__cards span,
+.dashboard-skeleton__toolbar,
+.dashboard-skeleton__table span {
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f1f2f4 25%, #fff5f2 42%, #f1f2f4 65%);
+  background-size: 320% 100%;
+  animation: delekto-skeleton 1.35s ease-in-out infinite;
+}
+.dashboard-skeleton__cards span { height: 76px; }
+.dashboard-skeleton__toolbar { height: 44px; }
+.dashboard-skeleton__table { display: grid; gap: 1px; border: 1px solid var(--color-border); background: var(--color-border); }
+.dashboard-skeleton__table span { height: 42px; border-radius: 0; }
+
+@keyframes delekto-skeleton { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .delekto-loader__letters span,
+  .dashboard-skeleton__cards span,
+  .dashboard-skeleton__toolbar,
+  .dashboard-skeleton__table span { animation: none; }
+}
