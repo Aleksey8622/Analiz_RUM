@@ -199,15 +199,15 @@ const iconPath = path.resolve(__dirname, '../../assets/delekto-kitchen-icon.png'
 
 const createSplashWindow = () => {
   const splash = new BrowserWindow({
-    width: 420,
-    height: 360,
+    width: 620,
+    height: 340,
     frame: false,
     resizable: false,
     movable: true,
     alwaysOnTop: true,
     center: true,
     show: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#ff4023',
     icon: iconPath,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
@@ -234,7 +234,7 @@ app.whenReady().then(async () => {
   const splash = createSplashWindow();
   try {
     await initializeDatabase();
-    const remainingSplashTime = Math.max(0, 1200 - (Date.now() - splashStartedAt));
+    const remainingSplashTime = Math.max(0, 10000 - (Date.now() - splashStartedAt));
     if (remainingSplashTime) await new Promise((resolve) => setTimeout(resolve, remainingSplashTime));
     createWindow(splash);
   } catch (error) {
