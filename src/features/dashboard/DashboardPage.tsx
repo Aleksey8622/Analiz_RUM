@@ -1307,8 +1307,8 @@ function DashboardPage() {
           <div className="dashboard-viewbar dashboard-viewbar--compact">
             <div className="dashboard-viewbar__result">
               <span>{visibleAnalysisItemCount} позиций</span>
-              <button type="button" onClick={toggleAllSuppliers}>
-                {areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'}
+              <button type="button" onClick={toggleAllSuppliers} aria-label={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'} title={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: areAllSuppliersExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }}><path d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
           </div>

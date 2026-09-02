@@ -58,7 +58,7 @@ const loadRows = (initialRows: DirectoryPosition[]) => initialRows.map((row) => 
   return {
     ...row,
     category: isSleeve ? 'Обечайки' : row.category.trim(),
-    sleeveClient: isSleeve ? (detectSleeveClient(row.name) || row.sleeveClient) : row.sleeveClient,
+    sleeveClient: isSleeve ? (row.sleeveClient || detectSleeveClient(row.name)) : row.sleeveClient,
     sleeveFormat: isSleeve ? (row.sleeveFormat || detectSleeveFormat(row.name, DEFAULT_SLEEVE_FORMATS)) : row.sleeveFormat,
   };
 });
@@ -342,7 +342,7 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
       if (bulkField === 'sleeveFormat') {
         return row.category === 'Обечайки' ? { ...row, sleeveFormat: bulkFieldValue, sleevePrintRun: sleevePrintRuns[sleeveRunKey(row.supplier, bulkFieldValue)] ?? 0 } : row;
       }
-      if (bulkField === 'sleeveClient') return row.category === 'Обечайки' ? { ...row, sleeveClient: bulkFieldValue } : row;
+      if (bulkField === 'sleeveClient') return { ...row, sleeveClient: bulkFieldValue };
       if (bulkField === 'sleevePrintRun') return row.category === 'Обечайки' ? { ...row, sleevePrintRun: Number(bulkFieldValue) || 0 } : row;
       if (bulkField === 'piecesPerPallet') return { ...row, piecesPerPallet: Number(bulkFieldValue) || 0 };
       return { ...row, [bulkField]: bulkFieldValue };
@@ -366,6 +366,7 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
 
   return (
     <div className="items-directory">
+      <datalist id="sleeve-client-options">{sleeveClients.map((client) => <option key={client} value={client} />)}</datalist>
       <div className="items-directory__toolbar">
         <label className="items-directory__search">
           <span aria-hidden="true">⌕</span>
@@ -445,7 +446,7 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
             <label><span>Номер договора</span><input value={editingRow.contractNumber} onChange={(event) => setEditingRow({ ...editingRow, contractNumber: event.target.value })} /></label>
             <label><span>Номер корзины</span><input value={editingRow.basketNumber} onChange={(event) => setEditingRow({ ...editingRow, basketNumber: event.target.value })} /></label>
             <label><span>Штук на паллете</span><input type="number" min="0" value={editingRow.piecesPerPallet || ''} onChange={(event) => setEditingRow({ ...editingRow, piecesPerPallet: Number(event.target.value) || 0 })} /></label>
-            {editingRow.category === 'Обечайки' && <><label><span>Формат обечайки</span><select value={editingRow.sleeveFormat ?? ''} onChange={(event) => setEditingRow({ ...editingRow, sleeveFormat: event.target.value, sleevePrintRun: sleevePrintRuns[sleeveRunKey(editingRow.supplier, event.target.value)] ?? 0 })}>{sleeveFormats.map((format) => <option key={format}>{format}</option>)}</select></label><label><span>Клиент</span><select value={editingRow.sleeveClient ?? ''} onChange={(event) => setEditingRow({ ...editingRow, sleeveClient: event.target.value })}>{sleeveClients.map((client) => <option key={client}>{client}</option>)}</select></label><label><span>Тираж</span><input type="number" min="1" value={editingRow.sleevePrintRun || ''} onChange={(event) => setEditingRow({ ...editingRow, sleevePrintRun: Number(event.target.value) || 0 })} placeholder="Укажите тираж" /></label></>}
+            {editingRow.category === 'Обечайки' && <><label><span>Формат обечайки</span><select value={editingRow.sleeveFormat ?? ''} onChange={(event) => setEditingRow({ ...editingRow, sleeveFormat: event.target.value, sleevePrintRun: sleevePrintRuns[sleeveRunKey(editingRow.supplier, event.target.value)] ?? 0 })}>{sleeveFormats.map((format) => <option key={format}>{format}</option>)}</select></label><label><span>Клиент</span><input list="sleeve-client-options" value={editingRow.sleeveClient ?? ''} onChange={(event) => setEditingRow({ ...editingRow, sleeveClient: event.target.value })} placeholder="Выберите или введите нового клиента" /></label><label><span>Тираж</span><input type="number" min="1" value={editingRow.sleevePrintRun || ''} onChange={(event) => setEditingRow({ ...editingRow, sleevePrintRun: Number(event.target.value) || 0 })} placeholder="Укажите тираж" /></label></>}
             <label className="items-directory__checkbox"><input type="checkbox" checked={editingRow.showInAnalysis} onChange={(event) => setEditingRow({ ...editingRow, showInAnalysis: event.target.checked })} /><span>Отображать в анализе</span></label>
           </div>
           <footer><button type="button" onClick={() => setEditingRow(null)}>Отменить</button><button className="dashboard-button dashboard-button--primary" type="button" onClick={saveEditing}>Сохранить изменения</button></footer>
@@ -466,14 +467,14 @@ export function ItemsDirectory({ initialRows, onRowsChange }: ItemsDirectoryProp
               <strong>Изменить выбранные позиции</strong>
               <span>Выбрано: {selectedBulkEditRowIds.length}</span>
               <select value={bulkField} onChange={(event) => { setBulkField(event.target.value); setBulkFieldValue(''); }}>{bulkFieldOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-              {bulkValueOptions ? <select value={bulkFieldValue} onChange={(event) => setBulkFieldValue(event.target.value)}><option value="">Выберите значение</option>{bulkValueOptions.map((value) => <option key={value}>{value}</option>)}</select> : <input type={bulkField === 'sleevePrintRun' || bulkField === 'piecesPerPallet' ? 'number' : 'text'} min="0" value={bulkFieldValue} onChange={(event) => setBulkFieldValue(event.target.value)} placeholder="Общее значение" />}
+              {bulkField === 'sleeveClient' ? <input list="sleeve-client-options" value={bulkFieldValue} onChange={(event) => setBulkFieldValue(event.target.value)} placeholder="Выберите или введите нового клиента" /> : bulkValueOptions ? <select value={bulkFieldValue} onChange={(event) => setBulkFieldValue(event.target.value)}><option value="">Выберите значение</option>{bulkValueOptions.map((value) => <option key={value}>{value}</option>)}</select> : <input type={bulkField === 'sleevePrintRun' || bulkField === 'piecesPerPallet' ? 'number' : 'text'} min="0" value={bulkFieldValue} onChange={(event) => setBulkFieldValue(event.target.value)} placeholder="Общее значение" />}
               <button className="dashboard-button dashboard-button--primary" type="button" disabled={!selectedBulkEditRowIds.length || !bulkFieldValue.trim()} onClick={applyFieldToSelectedBulkRows}>Применить к выбранным</button>
             </section>
             <div className="items-directory__bulk-table"><table><thead><tr><th><input type="checkbox" checked={bulkEditRows.length > 0 && selectedBulkEditRowIds.length === bulkEditRows.length} onChange={(event) => setSelectedBulkEditRowIds(event.target.checked ? bulkEditRows.map((row) => row.id) : [])} aria-label="Выбрать все позиции в корректировке" /></th><th>Категория</th><th>Формат</th><th>Клиент</th><th>Тираж</th><th>PLU</th><th>Наименование PLU</th><th>Поставщик</th><th>SAP-код</th><th>Договор</th><th>Корзина</th><th>Штук на паллете</th></tr></thead><tbody>{bulkEditRows.map((row) => <tr key={row.id}>
               <td><input type="checkbox" checked={selectedBulkEditRowIds.includes(row.id)} onChange={(event) => setSelectedBulkEditRowIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} aria-label={`Выбрать ${row.plu}`} /></td>
               <td><select value={row.category} onChange={(event) => updateBulkRow(row.id, { category: event.target.value })}>{['Лотки', 'Плёнки', 'Гофра и короба', 'Обечайки', 'Этикетки', 'Упаковка', 'Индивидуальная упаковка', 'Прочее'].map((category) => <option key={category}>{category}</option>)}</select></td>
               <td>{row.category === 'Обечайки' ? <select value={row.sleeveFormat ?? ''} onChange={(event) => updateBulkRow(row.id, { sleeveFormat: event.target.value, sleevePrintRun: sleevePrintRuns[sleeveRunKey(row.supplier, event.target.value)] ?? 0 })}>{sleeveFormats.map((format) => <option key={format}>{format}</option>)}</select> : '—'}</td>
-              <td>{row.category === 'Обечайки' ? <select value={row.sleeveClient ?? ''} onChange={(event) => updateBulkRow(row.id, { sleeveClient: event.target.value })}>{sleeveClients.map((client) => <option key={client}>{client}</option>)}</select> : '—'}</td>
+              <td>{row.category === 'Обечайки' ? <input list="sleeve-client-options" value={row.sleeveClient ?? ''} onChange={(event) => updateBulkRow(row.id, { sleeveClient: event.target.value })} placeholder="Клиент" /> : '—'}</td>
               <td>{row.category === 'Обечайки' ? <input type="number" min="1" value={row.sleevePrintRun || ''} onChange={(event) => updateBulkRow(row.id, { sleevePrintRun: Number(event.target.value) || 0 })} placeholder="Тираж" /> : '—'}</td>
               <td><input value={row.plu} onChange={(event) => updateBulkRow(row.id, { plu: event.target.value })} /></td>
               <td><input value={row.name} onChange={(event) => updateBulkRow(row.id, { name: event.target.value })} /></td>
