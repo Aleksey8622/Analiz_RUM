@@ -1,5 +1,6 @@
 PRAGMA foreign_keys = ON;
 
+
 CREATE TABLE IF NOT EXISTS app_settings (
   setting_key TEXT PRIMARY KEY,
   value_json TEXT NOT NULL,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS directory_positions (
   sleeve_format TEXT,
   sleeve_client TEXT,
   sleeve_print_run INTEGER,
+  deleted_override TEXT,
   UNIQUE(import_id, guid)
 );
 

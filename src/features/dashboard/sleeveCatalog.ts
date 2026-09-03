@@ -23,5 +23,9 @@ export const detectSleeveFormat = (name: string, formats: string[]) => {
   const direct = formats.find((format) => normalizeSleeveFormat(format) === normalized);
   if (direct) return direct;
   const reversed = normalizeSleeveFormat(`${detected[2]} × ${detected[1]}`);
-  return formats.find((format) => normalizeSleeveFormat(format) === reversed) ?? '';
+  return formats.find((format) => normalizeSleeveFormat(format) === reversed) ?? normalized;
 };
+
+export const detectSleeveClient = (name: string) => /(^|[^a-zа-я0-9])sel([^a-zа-я0-9]|$)/i.test(name)
+  ? 'Перекрёсток'
+  : /(^|[^a-zа-я0-9])5[kк]([^a-zа-я0-9]|$)/i.test(name) ? 'Пятёрочка' : '';

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx-js-style';
 
 type ExportItem = {
+  missingData?: string[];
   code: string;
   name: string;
   comment?: string;
@@ -90,9 +91,9 @@ const analysisHeaders = [
   'Комментарий 2',
   'LT',
   'Блок до выяснения',
-  'Свободный запас\nСклад',
-  'Свободный запас\nПр-во',
-  'Свободный запас\nОбщий запас',
+  'Свободный запас\nСклад, шт.',
+  'Свободный запас\nПр-во, шт.',
+  'Свободный запас\nОбщий запас, шт.',
   'Прогноз / день',
   'Потребность\n(прогноз день)',
   'Штук на паллете',
@@ -148,10 +149,10 @@ export const exportAnalysisWorkbook = (categories: ExportCategory[]) => {
           totalCover,
           item.comment ?? '',
           14,
-          item.blocked,
-          item.warehouse,
-          item.production,
-          item.totalStock,
+          item.missingData?.includes('blocked') ? null : item.blocked,
+          item.missingData?.includes('warehouse') ? null : item.warehouse,
+          item.missingData?.includes('production') ? null : item.production,
+          item.missingData?.includes('totalStock') ? null : item.totalStock,
           item.dailyForecast,
           item.dailyForecast,
           item.palletMultiple ?? null,
@@ -160,7 +161,7 @@ export const exportAnalysisWorkbook = (categories: ExportCategory[]) => {
           item.plannedDeliveryQty > 0 ? supplier.name : '',
           item.deliveryDate,
           item.futureStockDays,
-          item.supplyRemainder,
+          item.missingData?.includes('supplyRemainder') ? null : item.supplyRemainder,
           statusLabels[item.status],
         ]);
       });

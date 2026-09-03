@@ -21,6 +21,8 @@ type SourceReportProps = {
   rows: SourceReportRow[];
   onDeleteRow?: (row: SourceReportRow) => void;
   getRowClassName?: (row: SourceReportRow) => string | undefined;
+  preserveSourceOrder?: boolean;
+  variant?: 'default' | 'bom';
 };
 
 const splitValues = (value: string) =>
@@ -35,18 +37,22 @@ const formatCellValue = (row: SourceReportRow, column: SourceReportColumn) => {
   return value;
 };
 
-export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassName }: SourceReportProps) {
+export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassName, preserveSourceOrder = false, variant = 'default' }: SourceReportProps) {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<SourceFilter[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(500);
+  const isLiteralBom = variant === 'bom';
 
   const filteredRows = useMemo(() => {
+    // A BOM query already returns complete GP blocks in the exact Excel order.
+    // Never apply the generic report filters or sorting a second time here.
+    if (isLiteralBom) return rows;
     const query = search.trim().toLocaleLowerCase('ru');
     const activeFilters = filters.filter((filter) => filter.field && filter.value.trim());
 
-    return [...rows]
-      .sort((left, right) => Number(left.id) - Number(right.id))
+    const orderedRows = preserveSourceOrder ? rows : [...rows].sort((left, right) => Number(left.id) - Number(right.id));
+    return orderedRows
       .filter((row) => {
       const matchesSearch = !query || columns.some((column) =>
         String(row[column.key] ?? '').toLocaleLowerCase('ru').includes(query),
@@ -60,11 +66,14 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
 
       return matchesSearch && matchesFilters;
     });
-  }, [columns, filters, rows, search]);
+  }, [columns, filters, isLiteralBom, preserveSourceOrder, rows, search]);
 
   useEffect(() => setVisibleLimit(500), [filters, rows, search]);
 
-  const visibleRows = useMemo(() => filteredRows.slice(0, visibleLimit), [filteredRows, visibleLimit]);
+  const visibleRows = useMemo(
+    () => isLiteralBom ? filteredRows : filteredRows.slice(0, visibleLimit),
+    [filteredRows, isLiteralBom, visibleLimit],
+  );
 
   const updateFilter = (id: number, field: 'field' | 'value', value: string) => {
     setFilters((current) => current.map((filter) => filter.id === id ? { ...filter, [field]: value } : filter));
@@ -82,8 +91,8 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
   };
 
   return (
-    <div className="source-report">
-      <div className="source-report__toolbar">
+    <div className={`source-report source-report--${variant}`}>
+      {!isLiteralBom && <div className="source-report__toolbar">
         <label className="source-report__search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
           <input
@@ -99,9 +108,9 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
         <button type="button" onClick={addFilter}>+ Условие</button>
         {(search || filters.length > 0) && <button type="button" onClick={resetFilters}>Сбросить</button>}
         <span className="source-report__count">Колонок <strong>{columns.length}</strong> · показано <strong>{filteredRows.length}</strong> из {rows.length}</span>
-      </div>
+      </div>}
 
-      {isFilterOpen && (
+      {!isLiteralBom && isFilterOpen && (
         <section className="source-report__filters" aria-label={`Фильтры: ${caption}`}>
           <div>
             <strong>Многоуровневый фильтр</strong>
@@ -154,7 +163,7 @@ export function SourceReport({ caption, columns, rows, onDeleteRow, getRowClassN
           </tbody>
         </table>
         {filteredRows.length === 0 && <div className="source-report__empty">По заданным условиям ничего не найдено</div>}
-        {visibleRows.length < filteredRows.length && (
+        {!isLiteralBom && visibleRows.length < filteredRows.length && (
           <button className="source-report__load-more" type="button" onClick={() => setVisibleLimit((current) => current + 500)}>
             Показать ещё 500 · осталось {filteredRows.length - visibleRows.length}
           </button>

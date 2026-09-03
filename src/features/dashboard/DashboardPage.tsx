@@ -23,10 +23,10 @@ import {
   type AnalysisColumnKey,
   type SupplyColumnKey,
   type SupplyReportRow,
-  type WorkspaceSection,
 } from '../../store/workspaceSlice';
 import { SourceReport, type SourceReportColumn, type SourceReportRow } from './SourceReport';
 import { ItemsDirectory, type DirectoryPosition } from './ItemsDirectory';
+import { BomSearch } from './BomSearch';
 import { SleeveAnalysis } from './SleeveAnalysis';
 import { useDraggableModal } from '../../components/ui/useDraggableModal';
 import { DashboardSkeleton, DelektoLoader } from '../../components/ui/DelektoLoader';
@@ -44,7 +44,10 @@ type FilterRow = {
 type FilterInputName = Exclude<keyof FilterRow, 'id'>;
 
 type StockStatus = 'critical' | 'low' | 'blocked' | 'normal' | 'check';
+type WorkspaceSection = 'analysis' | 'sleeves' | 'supply-plan' | 'bom' | 'supply-report' | 'items-directory';
+
 type PackagingItem = {
+  missingData?: string[];
   code: string;
   name: string;
   comment?: string;
@@ -153,7 +156,7 @@ const statusLabels: Record<StockStatus, string> = {
 
 const formatNumber = (value: number) => new Intl.NumberFormat('ru-RU').format(value);
 
-const formatDays = (value: number | null) => (value === null ? 'Нет данных' : `${value.toFixed(1)} дн.`);
+const formatDays = (value: number | null) => (value === null ? 'Нет данных' : `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)} дн.`);
 
 const getDaysUntil = (value: string) => {
   const [day, month, year] = value.split('.').map(Number);
@@ -228,9 +231,9 @@ const analysisColumns: AnalysisColumn[] = [
   { key: 'stockDays', label: 'ТЗ склад, дн.', width: 112, align: 'right' },
   { key: 'stockProductionDays', label: 'ТЗ склад+пр-во, дн.', width: 142, align: 'right' },
   { key: 'blocked', label: 'Запас в блоке', width: 112, align: 'right' },
-  { key: 'warehouse', label: 'Остаток склад', width: 128, align: 'right' },
-  { key: 'production', label: 'Остаток производства', width: 148, align: 'right' },
-  { key: 'totalStock', label: 'Общий остаток', width: 122, align: 'right' },
+  { key: 'warehouse', label: 'Остаток склада, шт.', width: 150, align: 'right' },
+  { key: 'production', label: 'Остаток производства, шт.', width: 175, align: 'right' },
+  { key: 'totalStock', label: 'Общий остаток, шт.', width: 150, align: 'right' },
   { key: 'supplyRemainder', label: 'Остаток поставки', width: 135, align: 'right' },
   { key: 'status', label: 'Статус', width: 100, align: 'center' },
 ];
@@ -256,6 +259,7 @@ const getAnalysisColumnGroup = (columnKey: AnalysisColumnKey) => {
 };
 
 const getAnalysisCellValue = (item: PackagingItem, columnKey: AnalysisColumnKey) => {
+  if (item.missingData?.includes(columnKey)) return 'Нет данных';
   if (columnKey === 'stockDays' || columnKey === 'stockProductionDays' || columnKey === 'stockDaysOnDelivery' || columnKey === 'futureStockDays') {
     return formatDays(item[columnKey]);
   }
@@ -300,68 +304,7 @@ const supplyColumns: SupplyColumn[] = [
 
 const supplyRows: SupplyReportRow[] = [];
 
-const workshopStockColumns: SourceReportColumn[] = [
-  { key: 'materialNumber', label: 'Номер материала', width: 145 },
-  { key: 'plant', label: 'Завод', width: 85 },
-  { key: 'batch', label: 'Партия', width: 135 },
-  { key: 'warehouse', label: 'Склад', width: 90 },
-  { key: 'unit', label: 'ЕдИзмерения', width: 115 },
-  { key: 'freeStock', label: 'СвобИспользЗпс', width: 145, align: 'right' },
-  { key: 'qualityStock', label: 'НаКонтрКачества', width: 145, align: 'right' },
-  { key: 'blocked', label: 'Блокированный', width: 135, align: 'right' },
-  { key: 'materialType', label: 'Вид материала', width: 130 },
-  { key: 'madeAt', label: 'Д/Изготовления', width: 130 },
-  { key: 'shelfLife', label: 'СрокХранен/МсГ', width: 145 },
-  { key: 'lastMovement', label: 'Последнее ПМ', width: 125 },
-];
 
-const workshopStockRows: SourceReportRow[] = [];
-
-const warehouseStockColumns: SourceReportColumn[] = [
-  { key: 'restrictedBatch', label: 'Партия ОграничИспольз', width: 190 },
-  { key: 'warehouseType', label: 'Тип склада', width: 115 },
-  { key: 'storageBin', label: 'Складское место', width: 145 },
-  { key: 'handlingUnit', label: 'Единица обработки', width: 155 },
-  { key: 'product', label: 'Продукт', width: 125 },
-  { key: 'consolidationGroup', label: 'Группа консолидации', width: 170 },
-  { key: 'productDescription', label: 'Краткое описание продукта', width: 300 },
-  { key: 'quantity', label: 'Количество', width: 120, align: 'right' },
-  { key: 'baseUnit', label: 'Базисная ЕИ', width: 105 },
-  { key: 'movementDate', label: 'Дата ПМ', width: 120 },
-  { key: 'shelfLife', label: 'Срок хранения/МсГ', width: 155 },
-  { key: 'batch', label: 'Партия', width: 130 },
-  { key: 'stockType', label: 'Вид запаса', width: 115 },
-  { key: 'movementTime', label: 'Время ПМ', width: 110 },
-  { key: 'topHandlingUnit', label: 'ЕО верхнего уровня', width: 155 },
-  { key: 'document', label: 'Документ', width: 125 },
-  { key: 'parentHandlingUnit', label: 'Вышестоящая ЕО', width: 145 },
-  { key: 'resource', label: 'Ресурс', width: 120 },
-];
-
-const warehouseStockRows: SourceReportRow[] = [];
-
-const bomColumns: SourceReportColumn[] = [
-  { key: 'level', label: 'Уровень разузловки', width: 155 },
-  { key: 'position', label: 'Позиция', width: 105 },
-  { key: 'materialType', label: 'Вид материала', width: 125 },
-  { key: 'componentNumber', label: '№ компонента', width: 135 },
-  { key: 'materialText', label: 'Краткий текст материала', width: 310 },
-  { key: 'phantomNode', label: 'Фиктивный узел', width: 135 },
-  { key: 'alternativePosition', label: 'Альтернативная позиция', width: 165 },
-  { key: 'rankedList', label: 'Ранговый список', width: 135 },
-  { key: 'alternativeGroup', label: 'ГруппаАльтПоз', width: 135 },
-  { key: 'mainPlu', label: 'Основное PLU', width: 125 },
-  { key: 'materialText1', label: 'Краткий текст материала_1', width: 310 },
-  { key: 'node', label: 'Узел', width: 90 },
-  { key: 'componentQty', label: 'Кол-во компон. (БЕИ)', width: 165, align: 'right' },
-  { key: 'baseUnit', label: 'БЕИ', width: 80 },
-];
-
-const bomRows: SourceReportRow[] = [];
-
-const blockedStockColumns: SourceReportColumn[] = warehouseStockColumns;
-
-const blockedStockRows: SourceReportRow[] = [];
 
 const initialDirectoryRows: DirectoryPosition[] = [];
 
@@ -370,18 +313,15 @@ function DashboardPage() {
   const dispatch = useAppDispatch();
   const workspaceSettings = useAppSelector((state) => state.workspace);
   const {
-    activeSection,
     activeSupplyView,
     analysisFilters,
     savedSupplyViews,
     supplyFilters,
     visibleAnalysisColumns,
     visibleSupplyColumns,
-    selectedReportDate: updateDate,
     settingsHydrated,
   } = workspaceSettings;
-  const setActiveSection = (section: WorkspaceSection) => dispatch(setWorkspaceSection(section));
-  const setUpdateDate = (date: string) => dispatch(setSelectedReportDate(date));
+  const [activeSection, setActiveSectionLocal] = useState<WorkspaceSection>('analysis');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
@@ -399,6 +339,11 @@ function DashboardPage() {
   const [isUpdatingData, setIsUpdatingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [visibleSupplyLimit, setVisibleSupplyLimit] = useState(500);
+  const todayDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const [updateDate, setUpdateDateLocal] = useState(todayDate);
+  const setActiveSection = (section: WorkspaceSection) => { setActiveSectionLocal(section); dispatch(setWorkspaceSection(section)); };
+  const setUpdateDate = (date: string) => { setUpdateDateLocal(date); dispatch(setSelectedReportDate(date)); };
+  const dateLoadBusy = useRef(false);
   const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(initialDirectoryRows);
   const filterModalDrag = useDraggableModal(isFilterPanelOpen);
   const supplierPlanModalDrag = useDraggableModal(Boolean(selectedSupplierPlan));
@@ -408,48 +353,57 @@ function DashboardPage() {
   const columnAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    window.analizRum?.getDataState().then(setDataState).catch((error: unknown) =>
+    window.analizRum?.getDataState().then((next) => { setDataState(next); if (next.selectedDate) setUpdateDate(next.selectedDate); }).catch((error: unknown) =>
       setDataMessage(error instanceof Error ? error.message : 'Не удалось открыть базу данных'));
+    // Initial database hydration intentionally runs once on desktop startup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!window.analizRum?.getWorkspaceSettings) {
-      dispatch(hydrateWorkspaceSettings({}));
-      return;
-    }
-    window.analizRum.getWorkspaceSettings()
-      .then((settings) => dispatch(hydrateWorkspaceSettings(settings)))
-      .catch(() => dispatch(hydrateWorkspaceSettings({})));
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!settingsHydrated || !window.analizRum?.saveWorkspaceSettings) return;
-    const { settingsHydrated: _, ...persistedSettings } = workspaceSettings;
-    const timer = window.setTimeout(() => {
-      window.analizRum?.saveWorkspaceSettings(persistedSettings).catch(() => undefined);
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [settingsHydrated, workspaceSettings]);
 
   useEffect(() => {
     if (!dataState) return;
     setDirectoryPositions(dataState.directoryRows.map((row) => ({ ...row, showInAnalysis: Boolean(row.showInAnalysis) })));
   }, [dataState]);
 
-  const updateDatabase = async () => {
+  // AR-ARCHIVE-V1: calendar reads saved history, Update explicitly rereads files.
+  useEffect(() => {
+    if (!window.analizRum?.getWorkspaceSettings) { dispatch(hydrateWorkspaceSettings({})); return; }
+    window.analizRum.getWorkspaceSettings().then((settings) => {
+      dispatch(hydrateWorkspaceSettings(settings));
+      if (typeof settings.activeSection === 'string') setActiveSectionLocal(settings.activeSection as WorkspaceSection);
+      if (typeof settings.selectedReportDate === 'string') setUpdateDateLocal(settings.selectedReportDate);
+    }).catch(() => dispatch(hydrateWorkspaceSettings({})));
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !window.analizRum?.saveWorkspaceSettings) return;
+    const persistedSettings = { ...workspaceSettings, settingsHydrated: undefined };
+    const timer = window.setTimeout(() => { window.analizRum?.saveWorkspaceSettings(persistedSettings).catch(() => undefined); }, 200);
+    return () => window.clearTimeout(timer);
+  }, [settingsHydrated, workspaceSettings]);
+
+  const loadSelectedDate = async (date: string, refresh: boolean) => {
+    if (!date || dateLoadBusy.current) return;
     if (!window.analizRum) { setDataMessage('Обновление SQLite доступно в desktop-версии приложения.'); return; }
-    setIsUpdatingData(true); setDataMessage('Проверяю SAP-файлы и обновляю базу…');
+    dateLoadBusy.current = true;
+    setUpdateDate(date);
+    setIsUpdatingData(true); setDataMessage(date < todayDate() ? `Открываю архив за ${date}…` : 'Открываю данные…');
     try {
-      const next = await window.analizRum.updateData(updateDate); setDataState(next);
-      setDataMessage(next.imported?.length ? `Обновление за ${next.selectedDate} сохранено` : `Показаны данные за ${next.selectedDate}`);
-    } catch (error) { setDataMessage(error instanceof Error ? error.message : 'Ошибка обновления данных'); }
-    finally { setIsUpdatingData(false); }
+      const next = refresh ? await window.analizRum.updateData(date) : await window.analizRum.getSnapshot(date);
+      setDataState(next);
+      setDataMessage(next.imported?.length ? `Отчёты за ${next.selectedDate} загружены и сохранены` : next.imports.length ? `Показаны сохранённые данные за ${next.selectedDate}` : `За ${date} данных пока нет. Нажмите «Обновить данные».`);
+    } catch (error) {
+      if (dataState?.selectedDate) setUpdateDate(dataState.selectedDate);
+      setDataMessage(error instanceof Error ? error.message : 'Ошибка загрузки данных');
+    }
+    finally { dateLoadBusy.current = false; setIsUpdatingData(false); }
   };
+  const updateDatabase = () => loadSelectedDate(updateDate, true);
 
   const analysisSuppliers = useMemo<Supplier[]>(() => {
+    const forecasts = new Map((dataState?.forecastTotals ?? []).map(row => [row.materialNumber, row.dailyForecast]));
     const stockByMaterial = new Map((dataState?.stockTotals ?? []).map((row) => [String(row.materialNumber).replace(/^0+(?=\d)/, ''), row]));
     const supplyByMaterial = new Map((dataState?.supplyTotals ?? []).map((row) => [String(row.materialNumber).replace(/^0+(?=\d)/, ''), row.supplyRemainder]));
-    const nextSuppliers = suppliers.map((supplier) => ({
+    const nextSuppliers = (dataState ? [] : suppliers).map((supplier) => ({
       ...supplier,
       items: supplier.items.map((item) => {
         const key = item.code.replace(/^0+(?=\d)/, '');
@@ -458,7 +412,7 @@ function DashboardPage() {
         const warehouse = Number(stock?.warehouse ?? 0);
         const production = Number(stock?.production ?? 0);
         const totalStock = warehouse + production;
-        return { ...item, warehouse, production, blocked: Number(stock?.blocked ?? 0), totalStock, supplyRemainder: Number(supplyByMaterial.get(key) ?? 0), stockDays: item.dailyForecast > 0 ? Math.round(warehouse / item.dailyForecast) : null, stockProductionDays: item.dailyForecast > 0 ? Math.round(totalStock / item.dailyForecast) : null };
+        return { ...item, warehouse, production, blocked: Number(stock?.blocked ?? 0), totalStock, supplyRemainder: Number(supplyByMaterial.get(key) ?? 0), stockDays: item.dailyForecast > 0 ? (warehouse / item.dailyForecast) : null, stockProductionDays: item.dailyForecast > 0 ? (totalStock / item.dailyForecast) : null };
       }),
     }));
 
@@ -505,7 +459,18 @@ function DashboardPage() {
       }
     });
 
-    return nextSuppliers;
+    // AR-CURRENT-DIRECTORY-V2: join reports after constructing the current list.
+    return dataState ? nextSuppliers.map((supplier) => ({ ...supplier, items: supplier.items.map((item) => {
+      const key = item.code.trim().replace(/^0+(?=\d)/, '');
+      const stock = stockByMaterial.get(key);
+      const warehouse = Number(stock?.warehouse ?? 0);
+      const production = Number(stock?.production ?? 0);
+      const dailyForecast = forecasts.get(key.toUpperCase()) ?? 0;
+      return { ...item, dailyForecast, stockDays: dailyForecast > 0 ? (warehouse / dailyForecast) : null, stockProductionDays: dailyForecast > 0 ? ((warehouse + production) / dailyForecast) : null, warehouse, production, totalStock: warehouse + production,
+        blocked: Number(stock?.blocked ?? 0), supplyRemainder: Number(supplyByMaterial.get(key) ?? 0),
+        missingData: [...(!stock ? ['warehouse', 'production', 'totalStock', 'blocked'] : []), ...(!supplyByMaterial.has(key) ? ['supplyRemainder'] : [])],
+      };
+    }) })) : nextSuppliers;
   }, [dataState, directoryPositions]);
 
   const visibleAnalysisColumnsConfig = useMemo(
@@ -629,7 +594,7 @@ function DashboardPage() {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(new Date()).replace(' г.', '');
+  }).format(dataState?.selectedDate ? new Date(dataState.selectedDate + 'T12:00:00') : new Date()).replace(' г.', '');
 
   const supplyPlanRows = useMemo<SourceReportRow[]>(() =>
     savedSupplyPlans.flatMap((plan) => {
@@ -1059,11 +1024,8 @@ function DashboardPage() {
     analysis: { title: 'Анализ запасов упаковки', description: 'Поставщики, покрытие в днях и фактический остаток по позициям' },
     sleeves: { title: 'Анализ запасов обечаек', description: 'Остатки, недельные поставки, форматы и планирование общего заказа' },
     'supply-plan': { title: 'План поставки', description: 'Сохранённые позиции, текущий остаток и будущий ТЗ' },
-    'workshop-stock': { title: 'Остатки цех', description: 'Исходная выгрузка Power Query по компонентам и производственным планам' },
-    'warehouse-stock': { title: 'Остатки склад', description: 'Партионные складские остатки, качество, блокировка и сроки хранения' },
     'supply-report': { title: 'Отчёт поставки', description: 'SAP-заказы, остаток поставки, плановые даты и статус отгрузки' },
     bom: { title: 'Разузловка упаковки', description: 'Состав упаковочных позиций и расход материалов по данным SAP' },
-    'blocked-stock': { title: 'Запас в блоке', description: 'Отдельный контроль заблокированных партий и количества упаковки' },
     'items-directory': { title: 'Справочник позиций', description: 'Единый перечень упаковки, поставщиков и паллетной кратности' },
   };
 
@@ -1123,20 +1085,6 @@ function DashboardPage() {
             План поставки
           </button>
           <button
-            className={activeSection === 'workshop-stock' ? 'is-active' : ''}
-            type="button"
-            onClick={() => openSection('workshop-stock')}
-          >
-            Остатки цех
-          </button>
-          <button
-            className={activeSection === 'warehouse-stock' ? 'is-active' : ''}
-            type="button"
-            onClick={() => openSection('warehouse-stock')}
-          >
-            Остатки склад
-          </button>
-          <button
             className={activeSection === 'supply-report' ? 'is-active' : ''}
             type="button"
             onClick={() => openSection('supply-report')}
@@ -1149,13 +1097,6 @@ function DashboardPage() {
             onClick={() => openSection('bom')}
           >
             Разузловка
-          </button>
-          <button
-            className={activeSection === 'blocked-stock' ? 'is-active' : ''}
-            type="button"
-            onClick={() => openSection('blocked-stock')}
-          >
-            Запас в блоке
           </button>
           <button
             className={activeSection === 'items-directory' ? 'is-active' : ''}
@@ -1278,8 +1219,8 @@ function DashboardPage() {
             <button type="button" className="dashboard-button dashboard-button--secondary" disabled={isExporting} onClick={exportCurrentSection}>
               {isExporting ? 'Экспорт…' : 'Экспорт'}
             </button>
-            {activeSection === 'analysis' && <input className="dashboard-update-date" type="date" value={updateDate} onChange={(event) => setUpdateDate(event.target.value)} aria-label="Дата обновления данных" />}
-            {activeSection === 'analysis' && <button type="button" className="dashboard-button dashboard-button--primary" disabled={isUpdatingData} onClick={updateDatabase}>{isUpdatingData ? 'Обновление…' : 'Обновить данные'}</button>}
+            {activeSection === 'analysis' && <input className="dashboard-update-date" type="date" value={updateDate} max={todayDate()} disabled={isUpdatingData} onChange={(event) => void loadSelectedDate(event.target.value, false)} aria-label="Дата отчётов" />}
+            {activeSection === 'analysis' && <button type="button" className="dashboard-button dashboard-button--primary" disabled={isUpdatingData} onClick={updateDatabase}>{isUpdatingData ? 'Обновление…' : updateDate < todayDate() ? 'Перечитать из архива' : 'Обновить данные'}</button>}
           </div>
         </header>
         {activeSection === 'analysis' && dataMessage && <div className="dashboard-update-message">{dataMessage}</div>}
@@ -1332,9 +1273,7 @@ function DashboardPage() {
           <div className="dashboard-viewbar dashboard-viewbar--compact">
             <div className="dashboard-viewbar__result">
               <span>{visibleAnalysisItemCount} позиций</span>
-              <button type="button" onClick={toggleAllSuppliers} aria-label={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'} title={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: areAllSuppliersExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }}><path d="M9 5l7 7-7 7" /></svg>
-              </button>
+              <button type="button" onClick={toggleAllSuppliers} aria-label={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'} title={areAllSuppliersExpanded ? 'Свернуть группы' : 'Раскрыть все группы'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: areAllSuppliersExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }}><path d="M9 5l7 7-7 7" /></svg></button>
             </div>
           </div>
         )}
@@ -1550,11 +1489,11 @@ function DashboardPage() {
             ) : (
               <div className="dashboard-empty-state dashboard-empty-state--plan">
                 <strong>План поставки пока пуст</strong>
-                <span>Откройте раздел «Анализ», нажмите «Начать» у позиции и сохраните план.</span>
+                <span>Откройте раздел «Анализ», нажмите «Заказать» у позиции и сохраните план.</span>
               </div>
             )
           ) : activeSection === 'sleeves' ? (
-            <SleeveAnalysis directoryPositions={directoryPositions} />
+            <SleeveAnalysis directoryPositions={directoryPositions} stockTotals={dataState?.stockTotals} forecastTotals={dataState?.forecastTotals} />
           ) : activeSection === 'supply-report' ? (
             <div className="dashboard-report-shell">
               <div className="dashboard-saved-views" aria-label="Сохраненные фильтры">
@@ -1609,22 +1548,8 @@ function DashboardPage() {
                 </button>
               )}
             </div>
-          ) : activeSection === 'workshop-stock' ? (
-            <SourceReport caption="Остатки цех" columns={workshopStockColumns} rows={dataState?.workshopRows ?? workshopStockRows} />
-          ) : activeSection === 'warehouse-stock' ? (
-            <SourceReport caption="Остатки склад" columns={warehouseStockColumns} rows={dataState?.warehouseRows ?? warehouseStockRows} />
           ) : activeSection === 'bom' ? (
-            <SourceReport
-              caption="Разузловка"
-              columns={bomColumns}
-              rows={dataState?.bomRows ?? bomRows}
-              getRowClassName={(row) => {
-                const level = Math.max(0, Number(row.level) || 0);
-                return level === 0 ? 'source-report__bom-root' : `source-report__bom-level-${Math.min(level, 8)}`;
-              }}
-            />
-          ) : activeSection === 'blocked-stock' ? (
-            <SourceReport caption="Запас в блоке" columns={blockedStockColumns} rows={dataState?.blockedRows ?? blockedStockRows} />
+            <BomSearch state={dataState} onChange={setDataState} />
           ) : activeSection === 'items-directory' ? (
             <ItemsDirectory key={dataState?.selectedDate ?? 'empty'} initialRows={directoryPositions} onRowsChange={setDirectoryPositions} />
           ) : (
@@ -1757,7 +1682,7 @@ function DashboardPage() {
                                       openSupplierPlan(supplier);
                                     }}
                                   >
-                                    Начать
+                                    Заказать
                                   </button>
                                 </td>
                               </tr>
@@ -1871,7 +1796,7 @@ function DashboardPage() {
               <section className="dashboard-details__metrics">
                 <article><span>Прогноз / день</span><strong>{formatNumber(selectedPackagingItem.item.dailyForecast)}</strong></article>
                 <article><span>ТЗ на складе</span><strong>{formatDays(selectedPackagingItem.item.stockDays)}</strong></article>
-                <article><span>Общий остаток</span><strong>{formatNumber(selectedPackagingItem.item.totalStock)}</strong></article>
+                <article><span>Общий остаток, шт.</span><strong>{formatNumber(selectedPackagingItem.item.totalStock)}</strong></article>
                 <article><span>Остаток поставки</span><strong>{formatNumber(selectedPackagingItem.item.supplyRemainder)}</strong></article>
               </section>
               {selectedPackagingItem.item.comment && (

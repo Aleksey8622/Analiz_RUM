@@ -65,18 +65,16 @@ export type SavedSupplyView = {
   visibleColumns: SupplyColumnKey[];
 };
 
-export type WorkspaceSection = 'analysis' | 'sleeves' | 'supply-plan' | 'workshop-stock' | 'warehouse-stock' | 'bom' | 'supply-report' | 'blocked-stock' | 'items-directory';
-
-export type WorkspaceState = {
-  activeSection: WorkspaceSection;
+type WorkspaceState = {
+  activeSection: string;
   selectedReportDate: string;
+  settingsHydrated: boolean;
   analysisFilters: AnalysisFilters;
   visibleAnalysisColumns: AnalysisColumnKey[];
   supplyFilters: SupplyFilters;
   visibleSupplyColumns: SupplyColumnKey[];
   savedSupplyViews: SavedSupplyView[];
   activeSupplyView: string;
-  settingsHydrated: boolean;
 };
 
 const defaultAnalysisFilters: AnalysisFilters = {
@@ -135,6 +133,7 @@ export const defaultSupplyColumns: SupplyColumnKey[] = [
 const initialState: WorkspaceState = {
   activeSection: 'analysis',
   selectedReportDate: new Date().toISOString().slice(0, 10),
+  settingsHydrated: false,
   analysisFilters: defaultAnalysisFilters,
   visibleAnalysisColumns: defaultAnalysisColumns,
   supplyFilters: defaultSupplyFilters,
@@ -163,7 +162,6 @@ const initialState: WorkspaceState = {
     },
   ],
   activeSupplyView: 'Основной',
-  settingsHydrated: false,
 };
 
 const workspaceSlice = createSlice({
@@ -174,7 +172,7 @@ const workspaceSlice = createSlice({
       Object.assign(state, action.payload);
       state.settingsHydrated = true;
     },
-    setWorkspaceSection: (state, action: PayloadAction<WorkspaceSection>) => {
+    setWorkspaceSection: (state, action: PayloadAction<string>) => {
       state.activeSection = action.payload;
     },
     setSelectedReportDate: (state, action: PayloadAction<string>) => {
@@ -303,12 +301,12 @@ export const {
   applySupplyView,
   clearAnalysisFilters,
   clearSupplyFilters,
-  hydrateWorkspaceSettings,
   moveAnalysisColumn,
   moveSupplyColumn,
   resetAnalysisColumns,
   resetSupplyColumns,
   saveCurrentSupplyView,
+  hydrateWorkspaceSettings,
   setAnalysisAdvancedFilters,
   setAnalysisSearch,
   setSupplyAdvancedFilters,
