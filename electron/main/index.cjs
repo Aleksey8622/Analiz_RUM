@@ -194,6 +194,17 @@ const snapshot = (date) => {
 
 ipcMain.handle('data:get-state', () => ({ ...snapshot(), databasePath }));
 ipcMain.handle('data:get-snapshot', (_, date) => ({ ...snapshot(date), databasePath }));
+ipcMain.handle('settings:get-workspace', () => {
+  const saved = rows("SELECT value_json valueJson FROM app_settings WHERE setting_key='workspace' LIMIT 1")[0]?.valueJson;
+  if (!saved) return {};
+  try { return JSON.parse(saved); } catch { return {}; }
+});
+ipcMain.handle('settings:save-workspace', (_, settings) => {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Некорректные настройки рабочего пространства.');
+  database.run("INSERT INTO app_settings(setting_key,value_json) VALUES('workspace',?) ON CONFLICT(setting_key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP", [JSON.stringify(settings)]);
+  persist();
+  return true;
+});
 ipcMain.handle('directory:save-position', (_, position) => {
   const category = /обечайк/i.test(position.name) ? 'Обечайки' : normalizeCategory(position.category);
   const values = [position.id, category, position.plu, position.name, position.supplier, position.supplierSapCode, position.contractNumber, position.basketNumber, Math.max(0, Math.trunc(Number(position.piecesPerPallet) || 0)), Number(Boolean(position.showInAnalysis) && !/обечайк|этикетк/i.test(category)), position.sleeveFormat || null, position.sleeveClient || null, Math.max(0, Math.trunc(Number(position.sleevePrintRun) || 0)) || null];

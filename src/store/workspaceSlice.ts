@@ -65,13 +65,18 @@ export type SavedSupplyView = {
   visibleColumns: SupplyColumnKey[];
 };
 
-type WorkspaceState = {
+export type WorkspaceSection = 'analysis' | 'sleeves' | 'supply-plan' | 'workshop-stock' | 'warehouse-stock' | 'bom' | 'supply-report' | 'blocked-stock' | 'items-directory';
+
+export type WorkspaceState = {
+  activeSection: WorkspaceSection;
+  selectedReportDate: string;
   analysisFilters: AnalysisFilters;
   visibleAnalysisColumns: AnalysisColumnKey[];
   supplyFilters: SupplyFilters;
   visibleSupplyColumns: SupplyColumnKey[];
   savedSupplyViews: SavedSupplyView[];
   activeSupplyView: string;
+  settingsHydrated: boolean;
 };
 
 const defaultAnalysisFilters: AnalysisFilters = {
@@ -128,6 +133,8 @@ export const defaultSupplyColumns: SupplyColumnKey[] = [
 ];
 
 const initialState: WorkspaceState = {
+  activeSection: 'analysis',
+  selectedReportDate: new Date().toISOString().slice(0, 10),
   analysisFilters: defaultAnalysisFilters,
   visibleAnalysisColumns: defaultAnalysisColumns,
   supplyFilters: defaultSupplyFilters,
@@ -156,12 +163,23 @@ const initialState: WorkspaceState = {
     },
   ],
   activeSupplyView: 'Основной',
+  settingsHydrated: false,
 };
 
 const workspaceSlice = createSlice({
   name: 'workspace',
   initialState,
   reducers: {
+    hydrateWorkspaceSettings: (state, action: PayloadAction<Partial<Omit<WorkspaceState, 'settingsHydrated'>>>) => {
+      Object.assign(state, action.payload);
+      state.settingsHydrated = true;
+    },
+    setWorkspaceSection: (state, action: PayloadAction<WorkspaceSection>) => {
+      state.activeSection = action.payload;
+    },
+    setSelectedReportDate: (state, action: PayloadAction<string>) => {
+      state.selectedReportDate = action.payload;
+    },
     setAnalysisSearch: (state, action: PayloadAction<string>) => {
       state.analysisFilters.search = action.payload;
     },
@@ -285,6 +303,7 @@ export const {
   applySupplyView,
   clearAnalysisFilters,
   clearSupplyFilters,
+  hydrateWorkspaceSettings,
   moveAnalysisColumn,
   moveSupplyColumn,
   resetAnalysisColumns,
@@ -294,6 +313,8 @@ export const {
   setAnalysisSearch,
   setSupplyAdvancedFilters,
   setSupplySearch,
+  setSelectedReportDate,
+  setWorkspaceSection,
   toggleAnalysisColumn,
   toggleSupplyColumn,
   toggleSupplyFilterValue,

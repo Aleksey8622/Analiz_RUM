@@ -10,16 +10,20 @@ import {
   resetAnalysisColumns,
   resetSupplyColumns,
   saveCurrentSupplyView,
+  hydrateWorkspaceSettings,
   setAnalysisAdvancedFilters,
   setAnalysisSearch,
   setSupplyAdvancedFilters,
   setSupplySearch,
+  setSelectedReportDate,
+  setWorkspaceSection,
   toggleAnalysisColumn,
   toggleSupplyColumn,
   toggleSupplyFilterValue,
   type AnalysisColumnKey,
   type SupplyColumnKey,
   type SupplyReportRow,
+  type WorkspaceSection,
 } from '../../store/workspaceSlice';
 import { SourceReport, type SourceReportColumn, type SourceReportRow } from './SourceReport';
 import { ItemsDirectory, type DirectoryPosition } from './ItemsDirectory';
@@ -40,8 +44,6 @@ type FilterRow = {
 type FilterInputName = Exclude<keyof FilterRow, 'id'>;
 
 type StockStatus = 'critical' | 'low' | 'blocked' | 'normal' | 'check';
-type WorkspaceSection = 'analysis' | 'sleeves' | 'supply-plan' | 'workshop-stock' | 'warehouse-stock' | 'bom' | 'supply-report' | 'blocked-stock' | 'items-directory';
-
 type PackagingItem = {
   code: string;
   name: string;
@@ -366,15 +368,20 @@ const initialDirectoryRows: DirectoryPosition[] = [];
 function DashboardPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const workspaceSettings = useAppSelector((state) => state.workspace);
   const {
+    activeSection,
     activeSupplyView,
     analysisFilters,
     savedSupplyViews,
     supplyFilters,
     visibleAnalysisColumns,
     visibleSupplyColumns,
-  } = useAppSelector((state) => state.workspace);
-  const [activeSection, setActiveSection] = useState<WorkspaceSection>('analysis');
+    selectedReportDate: updateDate,
+    settingsHydrated,
+  } = workspaceSettings;
+  const setActiveSection = (section: WorkspaceSection) => dispatch(setWorkspaceSection(section));
+  const setUpdateDate = (date: string) => dispatch(setSelectedReportDate(date));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
@@ -392,7 +399,6 @@ function DashboardPage() {
   const [isUpdatingData, setIsUpdatingData] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [visibleSupplyLimit, setVisibleSupplyLimit] = useState(500);
-  const [updateDate, setUpdateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [directoryPositions, setDirectoryPositions] = useState<DirectoryPosition[]>(initialDirectoryRows);
   const filterModalDrag = useDraggableModal(isFilterPanelOpen);
   const supplierPlanModalDrag = useDraggableModal(Boolean(selectedSupplierPlan));
@@ -405,6 +411,25 @@ function DashboardPage() {
     window.analizRum?.getDataState().then(setDataState).catch((error: unknown) =>
       setDataMessage(error instanceof Error ? error.message : 'Не удалось открыть базу данных'));
   }, []);
+
+  useEffect(() => {
+    if (!window.analizRum?.getWorkspaceSettings) {
+      dispatch(hydrateWorkspaceSettings({}));
+      return;
+    }
+    window.analizRum.getWorkspaceSettings()
+      .then((settings) => dispatch(hydrateWorkspaceSettings(settings)))
+      .catch(() => dispatch(hydrateWorkspaceSettings({})));
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !window.analizRum?.saveWorkspaceSettings) return;
+    const { settingsHydrated: _, ...persistedSettings } = workspaceSettings;
+    const timer = window.setTimeout(() => {
+      window.analizRum?.saveWorkspaceSettings(persistedSettings).catch(() => undefined);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [settingsHydrated, workspaceSettings]);
 
   useEffect(() => {
     if (!dataState) return;
